@@ -1,0 +1,496 @@
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Enums represented as String in SQLite
+
+model User {
+  id             String   @id @default(cuid())
+  name           String
+  email          String   @unique
+  password       String?
+  role           String   @default("CASHIER") // Role: SUPER_ADMIN, OWNER, CASHIER
+  status         String   @default("PROFILE_INCOMPLETE") // AccountStatus: PROFILE_INCOMPLETE, PHONE_UNVERIFIED, PENDING_APPROVAL, ACTIVE, REJECTED, SUSPENDED
+
+  verifiedAt     DateTime?
+  approvedById   String?
+  approvedBy     User?    @relation("AdminApproval", fields: [approvedById], references: [id])
+  approvals      User[]   @relation("AdminApproval")
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // New Profile Fields
+  googleId            String?          @unique
+  username            String?          @unique
+  loginProvider       String?          @default("LOCAL") // LOCAL, GOOGLE, GOOGLE_AND_LOCAL
+  isGoogleVerified    Boolean          @default(false)
+  fullName            String?
+  phone               String?
+  phoneVerified       Boolean          @default(false)
+  profileImage        String?
+  twoFactorEnabled    Boolean          @default(false)
+  birthPlace          String?
+  birthDate           DateTime?
+  gender              String? // MALE, FEMALE
+  address             String?
+  province            String?
+  city                String?
+  district            String?
+  postalCode          String?
+
+  // New Store Fields
+  storeName           String?
+  businessType        String? // Cafe, Laundry, etc.
+  businessDescription String?
+  storeLogo           String?
+  storeAddress        String?
+  approvedAt          DateTime?
+
+  // Session & Status Fields
+  isOnline            Boolean          @default(false)
+  lastSeen            DateTime?
+  currentSessionId    String?
+  deviceId            String?
+  deviceName          String?
+  browser             String?
+  os                  String?
+  ipAddress           String?
+  lastLogin           DateTime?
+  lastActivity        DateTime?
+  sessionToken        String?
+
+
+  // Relations
+  ownedStores     Store[]        @relation("StoreOwner")
+  managedShifts   Shift[]
+  transactions    Transaction[]
+  stockLogs       StockLog[]
+  loginActivities LoginActivity[]
+  subscriptions   Subscription[]
+  shiftSchedules  ShiftSchedule[]
+  trialClaim      TrialClaim?
+  
+  // A cashier belongs to one store
+  storeId       String?
+  store         Store?         @relation("StoreCashiers", fields: [storeId], references: [id])
+}
+
+model Store {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  phone     String?
+  logo      String?
+  status    String   @default("ACTIVE") // ACTIVE, SUSPENDED
+  ownerId   String
+  owner     User     @relation("StoreOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  pairingCode String @unique // Used for QR pairing
+  exitPin     String   @default("1234") // Security PIN to exit cashier mode
+  midtransServerKey String?
+  midtransClientKey String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  branches     Branch[]
+  products     Product[]
+  categories   Category[]
+  cashiers     User[]        @relation("StoreCashiers")
+  transactions Transaction[]
+  shifts       Shift[]
+  taxSetting   TaxSetting?
+  shiftSchedules ShiftSchedule[]
+  paymentGateway PaymentGateway?
+}
+
+model Branch {
+  id        String   @id @default(uuid())
+  name      String
+  address   String?
+  phone     String?
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  transactions Transaction[]
+  shifts       Shift[]
+}
+
+model Category {
+  id        String   @id @default(uuid())
+  name      String
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  products Product[]
+
+  @@unique([name, storeId])
+}
+
+model Product {
+  id            String   @id @default(uuid())
+  name          String
+  barcode       String?
+  description   String?
+  price         Decimal
+  costPrice     Decimal
+  stock         Int      @default(0)
+  minStockAlert Int      @default(5)
+  image         String?
+  storeId       String
+  store         Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  categoryId    String?
+  category      Category? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  transactionItems TransactionItem[]
+  stockLogs        StockLog[]
+
+  @@unique([barcode, storeId])
+}
+
+model Transaction {
+  id                String            @id @default(uuid())
+  transactionNumber String            @unique
+  storeId           String
+  store             Store             @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  branchId          String?
+  branch            Branch?           @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  cashierId         String
+  cashier           User              @relation(fields: [cashierId], references: [id], onDelete: Cascade)
+  subtotal          Decimal
+  discount          Decimal           @default(0)
+  tax               Decimal           @default(0)
+  total             Decimal
+  paymentMethod     String
+  status            String            @default("PENDING")
+  invoiceNumber     String?           @unique
+  queueNumber       String?
+  customerName      String?
+  customerPhone     String?
+  tableNumber       String?
+  orderType         String?           // DINE_IN, TAKE_AWAY, DELIVERY, PICK_UP
+  notes             String?
+  paymentStatus     String            @default("PENDING_PAYMENT") // PENDING_PAYMENT, PAID, CANCELLED
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Midtrans Payment Gateway Fields
+  midtransOrderId       String?   @unique
+  midtransTransactionId String?   @unique
+  snapToken             String?
+  paymentType           String?
+  transactionStatus     String?
+  fraudStatus           String?
+  settlementTime        DateTime?
+  expiredAt             DateTime?
+  paymentUrl             String?
+  qrString               String?
+
+  // Relations
+  items   TransactionItem[]
+  payment Payment?
+  shiftId String?
+  shift   Shift?            @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+}
+
+model TransactionItem {
+  id            String      @id @default(uuid())
+  transactionId String
+  transaction   Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  productId     String?
+  product       Product?    @relation(fields: [productId], references: [id], onDelete: SetNull)
+  productName   String
+  price         Decimal
+  quantity      Int
+  total         Decimal
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Payment {
+  id                    String      @id @default(uuid())
+  transactionId         String      @unique
+  transaction           Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  paymentType           String      // e.g. "qris", "cash"
+  grossAmount           Decimal
+  transactionStatus     String      // midtrans status: "settlement", "pending", "expire", etc.
+  transactionIdMidtrans String?     @unique
+  qrCodeUrl             String?     // URL or base64 of the QR code
+  qrData                String?     // Raw QR data for manual QR generation
+  expiryTime            DateTime?
+  createdAt             DateTime    @default(now())
+  updatedAt             DateTime    @updatedAt
+}
+
+model Shift {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  storeId     String
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  branchId    String?
+  branch      Branch?   @relation(fields: [branchId], references: [id], onDelete: SetNull)
+  startTime   DateTime  @default(now())
+  endTime     DateTime?
+  startingCash Decimal
+  endingCash   Decimal?
+  totalSales  Decimal   @default(0)
+  status      String    @default("OPEN") // "OPEN", "CLOSED"
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relations
+  transactions Transaction[]
+  scheduleId   String?
+  schedule     ShiftSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+}
+
+model StockLog {
+  id          String       @id @default(uuid())
+  productId   String
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+  type        String
+  quantity    Int
+  description String?
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime     @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  action      String
+  actorId     String
+  targetId    String?
+  description String
+  createdAt   DateTime @default(now())
+}
+
+model LoginActivity {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email       String
+  ipAddress   String
+  userAgent   String
+  device      String?
+  status      String   // "SUCCESS", "FAILED"
+  isSuspicious Boolean @default(false)
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model SubscriptionPlan {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  price       Decimal
+  features    String   // Comma-separated or JSON
+  durationDays Int     @default(30)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Resource limits (-1 = unlimited)
+  maxStore        Int     @default(1)
+  maxProduct      Int     @default(5)
+  maxCashier      Int     @default(1)
+  maxCategory     Int     @default(2)
+
+  // Feature flags
+  canUseMidtrans    Boolean @default(false)
+  canUseQRIS        Boolean @default(false)
+  canUseExport      Boolean @default(false)
+  canUseAnalytics   Boolean @default(false)
+  canUseAPI         Boolean @default(false)
+  canUseAI          Boolean @default(false)
+  canUseMultiBranch Boolean @default(false)
+  canUseLoyalty     Boolean @default(false)
+  canUsePromo       Boolean @default(false)
+
+  subscriptions Subscription[]
+}
+
+model Subscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  planId    String
+  plan      SubscriptionPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  status    String   // "ACTIVE", "GRACE_PERIOD", "EXPIRED", "CANCELLED", "PENDING_PAYMENT"
+  startDate DateTime @default(now())
+  endDate   DateTime?
+  isLifetime Boolean  @default(false)
+  source    String   @default("MIDTRANS") // "MIDTRANS" | "MANUAL_GRANT"
+  reason    String?
+  autoRenew Boolean  @default(false)
+  paymentId String?  // Midtrans order ID reference
+  midtransOrderId String? @unique
+  reminderSent Boolean  @default(false)
+  gracePeriodUntil DateTime? // Set when entering GRACE_PERIOD; null otherwise (endDate + 7 days)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  payments  SubscriptionPayment[]
+}
+
+model SubscriptionPayment {
+  id                    String       @id @default(cuid())
+  subscriptionId        String
+  subscription          Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount                Decimal
+  status                String       // "PAID", "PENDING", "FAILED"
+  paymentType           String?      // "MANUAL_GRANT", "qris", etc.
+  paymentMethod         String?      // "SUPER_ADMIN", "MIDTRANS", etc.
+  reason                String?      // Reason for manual grant
+  referenceId           String?      // Midtrans order ID (SUB-YYYYMMDD-XXXXXX)
+  orderId               String?      // alias for referenceId (for clarity)
+  midtransTransactionId String?      // Midtrans internal transaction ID
+  paidAt                DateTime?    // Waktu pembayaran dikonfirmasi
+  expiredAt             DateTime?    // Waktu transaksi kedaluwarsa
+  createdAt             DateTime     @default(now())
+  updatedAt             DateTime     @updatedAt
+}
+
+model SystemSetting {
+  key   String @id
+  value String
+}
+
+model OTPVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  phone     String
+  otpCode   String
+  expiredAt DateTime
+  attempt   Int      @default(0)
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model UserSession {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String
+  sessionToken String?
+  deviceId     String
+  deviceName   String
+  browser      String
+  os           String?
+  ipAddress    String
+  isActive     Boolean  @default(true)
+  lastActivity DateTime
+  createdAt    DateTime @default(now())
+}
+
+model PasswordHistory {
+  id        String   @id @default(cuid())
+  userId    String
+  hash      String
+  createdAt DateTime @default(now())
+}
+
+model EmailVerification {
+  id        String   @id @default(cuid())
+  userId    String
+  newEmail  String
+  token     String   @unique
+  expiredAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model TaxSetting {
+  id              String   @id @default(cuid())
+  storeId         String   @unique
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  taxName         String
+  percentage      Decimal
+  calculationType String   // INCLUSIVE or EXCLUSIVE
+  isActive        Boolean  @default(true)
+  createdBy       String
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+}
+
+model ShiftSchedule {
+  id           String   @id @default(cuid())
+  storeId      String
+  store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  cashierId    String
+  cashier      User     @relation(fields: [cashierId], references: [id], onDelete: Cascade)
+  shiftName    String
+  startTime    DateTime
+  endTime      DateTime
+  status       String   @default("SCHEDULED") // ShiftStatus: SCHEDULED, IN_PROGRESS, FINISHED, MISSED
+  shifts       Shift[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model PaymentGateway {
+  id                 String    @id @default(cuid())
+  storeId            String    @unique
+  store              Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  provider           String    @default("MIDTRANS")
+  merchantId         String?
+  serverKeyEncrypted String
+  clientKey          String
+  environment        String    @default("SANDBOX") // SANDBOX, PRODUCTION
+  status             String    @default("DISCONNECTED") // CONNECTED, DISCONNECTED
+  connectedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model TrialClaim {
+  id        String   @id @default(cuid())
+  ownerId   String   @unique
+  user      User     @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  nikHash   String   @unique
+  maskedNik String
+  claimedAt DateTime @default(now())
+  expiredAt DateTime
+  status    String   // "ACTIVE", "EXPIRED"
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Platform-level Midtrans configuration for Super Admin
+// Used for ALL subscription payments (separate from per-store PaymentGateway)
+model PlatformPaymentGateway {
+  id                 String    @id @default(cuid())
+  provider           String    @default("MIDTRANS")
+  merchantId         String?
+  merchantName       String?
+  serverKeyEncrypted String    // AES-256 encrypted server key
+  clientKey          String    // Client key (safe to store as plaintext)
+  environment        String    @default("SANDBOX") // SANDBOX | PRODUCTION
+  status             String    @default("DISCONNECTED") // CONNECTED | DISCONNECTED
+  connectedAt        DateTime?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+}
+
+model PasswordResetOTP {
+  id        String   @id @default(cuid())
+  email     String
+  otpCode   String
+  expiredAt DateTime
+  verified  Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
