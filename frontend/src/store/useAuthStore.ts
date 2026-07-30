@@ -6,10 +6,12 @@ interface User {
   email: string;
   name: string;
   username?: string | null;
+  phone?: string | null;
   role: 'OWNER' | 'CASHIER' | 'SUPER_ADMIN';
   status?: string;
   hasPassword?: boolean;
   phoneVerified?: boolean;
+  isGoogleVerified?: boolean;
   storeId?: string | null;
   impersonatedBy?: string | null;
 }

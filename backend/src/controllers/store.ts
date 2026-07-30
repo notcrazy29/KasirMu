@@ -4,13 +4,29 @@ import { AuthRequest } from '../middlewares/auth';
 import { z } from 'zod';
 import crypto from 'crypto';
 
-// Validation Schemas
 export const createStoreSchema = z.object({
   body: z.object({
     name: z.string().min(2, 'Store name must be at least 2 characters'),
     address: z.string().optional(),
     phone: z.string().optional(),
     logo: z.string().optional(),
+  }),
+});
+
+export const updateStoreProfileSchema = z.object({
+  body: z.object({
+    name: z.string().min(2, 'Nama toko minimal 2 karakter').optional(),
+    address: z.string().optional().nullable(),
+    district: z.string().optional().nullable(),
+    city: z.string().optional().nullable(),
+    province: z.string().optional().nullable(),
+    postalCode: z.string().optional().nullable(),
+    phone: z.string().optional().nullable(),
+    whatsapp: z.string().optional().nullable(),
+    instagram: z.string().optional().nullable(),
+    website: z.string().optional().nullable(),
+    footerNote: z.string().optional().nullable(),
+    logo: z.string().optional().nullable(),
   }),
 });
 
@@ -215,6 +231,57 @@ export const updateStoreMidtrans = async (req: AuthRequest, res: Response, next:
 
     return res.json({
       message: 'Kredensial Midtrans berhasil diperbarui',
+      store: updatedStore,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateStoreProfile = async (req: AuthRequest, res: Response, next: NextFunction) => {
+  try {
+    const { storeId } = req.params;
+    const ownerId = req.user?.id;
+    const {
+      name,
+      address,
+      district,
+      city,
+      province,
+      postalCode,
+      phone,
+      whatsapp,
+      instagram,
+      website,
+      footerNote,
+      logo,
+    } = req.body;
+
+    const store = await prisma.store.findUnique({ where: { id: storeId } });
+    if (!store || store.ownerId !== ownerId) {
+      return res.status(403).json({ message: 'Tidak memiliki akses untuk merubah profil outlet ini' });
+    }
+
+    const updatedStore = await prisma.store.update({
+      where: { id: storeId },
+      data: {
+        ...(name !== undefined && { name }),
+        ...(address !== undefined && { address }),
+        ...(district !== undefined && { district }),
+        ...(city !== undefined && { city }),
+        ...(province !== undefined && { province }),
+        ...(postalCode !== undefined && { postalCode }),
+        ...(phone !== undefined && { phone }),
+        ...(whatsapp !== undefined && { whatsapp }),
+        ...(instagram !== undefined && { instagram }),
+        ...(website !== undefined && { website }),
+        ...(footerNote !== undefined && { footerNote }),
+        ...(logo !== undefined && { logo }),
+      },
+    });
+
+    return res.json({
+      message: 'Profil outlet dan header/footer struk berhasil diperbarui',
       store: updatedStore,
     });
   } catch (error) {

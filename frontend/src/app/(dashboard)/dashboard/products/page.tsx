@@ -403,7 +403,7 @@ export default function ProductsPage() {
             required
           />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               id="pBarcode"
               type="text"
@@ -413,14 +413,14 @@ export default function ProductsPage() {
               onChange={(e) => setProdBarcode(e.target.value)}
             />
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="pCategory" className="text-xs font-semibold text-slate-300">
+              <label htmlFor="pCategory" className="text-xs font-semibold text-slate-700 dark:text-slate-300">
                 Kategori
               </label>
               <select
                 id="pCategory"
                 value={prodCategory}
                 onChange={(e) => setProdCategory(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 text-slate-300 rounded-lg text-xs p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full bg-white dark:bg-slate-950 border border-slate-300 dark:border-slate-800 text-slate-800 dark:text-slate-300 rounded-lg text-xs p-2.5 outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">Pilih Kategori</option>
                 {categories.map((c) => (
@@ -432,7 +432,7 @@ export default function ProductsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               id="pPrice"
               type="number"
@@ -451,7 +451,7 @@ export default function ProductsPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
               id="pStock"
               type="number"

@@ -40,6 +40,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { user, stores, currentStoreId, isAuthenticated, isLoading, switchStore, logout, login } = useAuthStore();
   const { fetchSubscription, reset: resetSubscription, isPremium, isInitialized, canClaimTrial, claimTrial } = useSubscriptionStore();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
   const [isCreateStoreOpen, setIsCreateStoreOpen] = useState(false);
   const [newStoreName, setNewStoreName] = useState('');
   const [newStoreAddress, setNewStoreAddress] = useState('');
@@ -198,7 +199,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'QR Pairing', path: '/dashboard/pairing', icon: <QrCode className="h-4.5 w-4.5" /> },
     { name: 'Payment Gateway', path: '/dashboard/settings/payment-gateway', icon: <CreditCard className="h-4.5 w-4.5" />, proOnly: true },
     { name: 'Pengaturan Pajak', path: '/dashboard/settings/tax', icon: <Settings className="h-4.5 w-4.5" /> },
+    { name: 'Profil Outlet & Struk', path: '/dashboard/settings/store', icon: <Store className="h-4.5 w-4.5" /> },
     { name: 'Profil & Keamanan', path: '/dashboard/settings/profile', icon: <User className="h-4.5 w-4.5" /> },
+
     { name: 'Langganan', path: '/dashboard/subscription', icon: <CreditCard className="h-4.5 w-4.5" /> },
   ];
 
@@ -225,31 +228,43 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       )}
       
       <div className="flex-1 flex h-full bg-slate-950 overflow-hidden text-slate-100">
-      {/* Sidebar Desktop */}
-      <aside className="hidden lg:flex flex-col w-64 bg-slate-900 border-r border-slate-800 shrink-0">
-        {/* Brand */}
-        <div className="p-6 flex items-center gap-2 border-b border-slate-800/80">
-          <div className="bg-blue-600 p-1.5 rounded text-white font-black text-sm">KM</div>
-          <span className="font-bold text-white tracking-wide">Kasir<span className="text-blue-500">Mu</span> Owner</span>
+      {/* Sidebar Desktop & Tablet */}
+      <aside className={`hidden lg:flex flex-col ${isCollapsed ? 'w-20' : 'w-64'} bg-slate-900 border-r border-slate-800 shrink-0 transition-all duration-300 relative`}>
+        {/* Brand & Collapse Toggle */}
+        <div className="p-4 sm:p-5 flex items-center justify-between border-b border-slate-800/80">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <div className="bg-blue-600 p-1.5 rounded text-white font-black text-sm shrink-0">KM</div>
+            {!isCollapsed && (
+              <span className="font-bold text-white tracking-wide truncate">Kasir<span className="text-blue-500">Mu</span> Owner</span>
+            )}
+          </div>
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer hidden lg:block"
+            title={isCollapsed ? 'Perluas Sidebar' : 'Kecilkan Sidebar'}
+          >
+            <Menu className="h-4 w-4" />
+          </button>
         </div>
 
         {/* Store Context Switcher */}
-        <div className="px-4 py-4 relative border-b border-slate-800/50">
+        <div className="px-3 py-3 relative border-b border-slate-800/50">
           {stores.length > 0 ? (
             <div>
               <button
                 onClick={() => setIsStoreDropdownOpen(!isStoreDropdownOpen)}
-                className="w-full flex items-center justify-between bg-slate-950 border border-slate-800 hover:border-slate-700 px-3.5 py-2.5 rounded-lg text-sm font-semibold text-white transition-all cursor-pointer"
+                className={`w-full flex items-center justify-between bg-slate-950 border border-slate-800 hover:border-slate-700 ${isCollapsed ? 'px-2 py-2 justify-center' : 'px-3.5 py-2.5'} rounded-lg text-sm font-semibold text-white transition-all cursor-pointer`}
+                title={isCollapsed ? (activeStore?.name || 'Pilih Toko') : undefined}
               >
-                <div className="flex items-center gap-2 truncate">
+                <div className="flex items-center gap-2 truncate min-w-0">
                   <Store className="h-4 w-4 text-blue-400 shrink-0" />
-                  <span className="truncate">{activeStore?.name || 'Pilih Toko'}</span>
+                  {!isCollapsed && <span className="truncate">{activeStore?.name || 'Pilih Toko'}</span>}
                 </div>
-                <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />
+                {!isCollapsed && <ChevronDown className="h-4 w-4 text-slate-400 shrink-0" />}
               </button>
 
               {isStoreDropdownOpen && (
-                <div className="absolute top-[82px] left-4 right-4 z-50 bg-slate-900 border border-slate-800 shadow-xl rounded-lg p-1 animate-zoom-in">
+                <div className={`absolute top-[64px] ${isCollapsed ? 'left-2 w-48' : 'left-3 right-3'} z-50 bg-slate-900 border border-slate-800 shadow-xl rounded-lg p-1 animate-zoom-in`}>
                   <div className="max-h-40 overflow-y-auto flex flex-col gap-0.5">
                     {stores.map((s) => (
                       <button
@@ -263,7 +278,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           s.id === currentStoreId ? 'text-blue-400 bg-slate-950/40' : 'text-slate-300'
                         }`}
                       >
-                        <Building2 className="h-3.5 w-3.5" />
+                        <Building2 className="h-3.5 w-3.5 shrink-0" />
                         <span className="truncate">{s.name}</span>
                       </button>
                     ))}
@@ -289,13 +304,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               className="w-full flex items-center justify-center gap-1 text-xs font-bold"
               onClick={() => setIsCreateStoreOpen(true)}
             >
-              <Plus className="h-4 w-4" /> Buat Toko Pertama
+              <Plus className="h-4 w-4" /> {!isCollapsed && 'Buat Toko Pertama'}
             </Button>
           )}
         </div>
 
         {/* Links */}
-        <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto">
+        <nav className="flex-1 px-2.5 py-3 flex flex-col gap-1 overflow-y-auto">
           {filteredLinks.map((link) => {
             const isActive = pathname === link.path;
             const isLocked = (link as any).proOnly && isInitialized && !isPremium;
@@ -303,16 +318,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <Link
                 key={link.path}
                 href={link.path}
-                className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                title={isCollapsed ? link.name : undefined}
+                className={`flex items-center gap-3 ${isCollapsed ? 'justify-center px-2 py-3' : 'px-3.5 py-2.5'} rounded-lg text-sm font-semibold transition-all min-h-[44px] ${
                   isActive
                     ? 'bg-blue-600/15 text-blue-400 border-l-4 border-blue-500 pl-3'
                     : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50'
                 }`}
               >
-                {link.icon}
-                <span className="flex-1">{link.name}</span>
-                {isLocked && (
-                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 tracking-wider">
+                <div className="shrink-0">{link.icon}</div>
+                {!isCollapsed && <span className="flex-1 truncate">{link.name}</span>}
+                {!isCollapsed && isLocked && (
+                  <span className="text-[9px] font-black px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 tracking-wider shrink-0">
                     PRO
                   </span>
                 )}
@@ -322,65 +338,99 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         {/* Footer info & Logout */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/40 flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-2 px-2">
+        <div className="p-3 border-t border-slate-800 bg-slate-950/40 flex flex-col gap-2">
+          <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'justify-between'} gap-2 px-1`}>
             <div className="flex items-center gap-2 truncate">
-              <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-750 flex items-center justify-center text-xs font-bold text-slate-300 uppercase">
+              <div className="w-8 h-8 rounded-full bg-slate-800 border border-slate-750 flex items-center justify-center text-xs font-bold text-slate-300 uppercase shrink-0">
                 {user?.name.slice(0, 2)}
               </div>
-              <div className="truncate">
-                <span className="block text-xs font-bold text-white truncate">{user?.name}</span>
-                <span className="block text-[10px] text-slate-500 uppercase font-black">{user?.role}</span>
-              </div>
+              {!isCollapsed && (
+                <div className="truncate">
+                  <span className="block text-xs font-bold text-white truncate">{user?.name}</span>
+                  <span className="block text-[10px] text-slate-500 uppercase font-black">{user?.role}</span>
+                </div>
+              )}
             </div>
-            <ThemeToggle />
+            {!isCollapsed && <ThemeToggle />}
           </div>
           <button
             onClick={() => {
               logout();
               router.push('/login');
             }}
-            className="w-full flex items-center gap-2 justify-center px-4 py-2 text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
+            title={isCollapsed ? 'Keluar Akun' : undefined}
+            className={`w-full flex items-center gap-2 justify-center px-3 py-2 text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer min-h-[44px]`}
           >
-            <LogOut className="h-4 w-4" />
-            <span>Keluar Akun</span>
+            <LogOut className="h-4 w-4 shrink-0" />
+            {!isCollapsed && <span>Keluar Akun</span>}
           </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
-        {/* Header Mobile */}
-        <header className="lg:hidden flex items-center justify-between px-6 py-4 bg-slate-900 border-b border-slate-800">
-          <div className="flex items-center gap-2">
+        {/* Header Mobile & Tablet Toggle */}
+        <header className="lg:hidden flex items-center justify-between px-4 sm:px-6 py-3.5 bg-slate-900 border-b border-slate-800 shadow-sm shrink-0">
+          <div className="flex items-center gap-3">
             <button
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 cursor-pointer"
+              className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+              aria-label="Toggle navigation menu"
             >
               <Menu className="h-5 w-5" />
             </button>
-            <span className="font-bold text-white text-sm">KasirMu</span>
+            <div className="flex items-center gap-1.5">
+              <div className="bg-blue-600 p-1 rounded text-white font-black text-xs">KM</div>
+              <span className="font-bold text-white text-sm tracking-tight">Kasir<span className="text-blue-500">Mu</span></span>
+            </div>
           </div>
 
-          <span className="text-xs font-bold text-blue-400 truncate max-w-[150px]">
-            {activeStore?.name || 'KasirMu'}
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-blue-400 bg-blue-500/10 px-2.5 py-1 rounded-full border border-blue-500/20 truncate max-w-[130px] sm:max-w-[200px]">
+              {activeStore?.name || 'KasirMu'}
+            </span>
+            <ThemeToggle />
+          </div>
         </header>
 
         {/* Mobile Drawer Sidebar */}
         {isSidebarOpen && (
           <div className="fixed inset-0 z-50 lg:hidden flex">
             <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
-            <aside className="relative w-64 bg-slate-900 h-full flex flex-col border-r border-slate-800 animate-zoom-in">
-              <div className="p-5 border-b border-slate-800 flex items-center justify-between">
-                <span className="font-bold text-white">Menu KasirMu</span>
-                <button onClick={() => setIsSidebarOpen(false)} className="text-slate-400 hover:text-white">
+            <aside className="relative w-72 max-w-[85vw] bg-slate-900 h-full flex flex-col border-r border-slate-800 animate-zoom-in shadow-2xl">
+              <div className="p-4 sm:p-5 border-b border-slate-800 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="bg-blue-600 p-1.5 rounded text-white font-black text-xs">KM</div>
+                  <span className="font-bold text-white text-sm">Menu Owner</span>
+                </div>
+                <button 
+                  onClick={() => setIsSidebarOpen(false)} 
+                  className="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
+              {/* Store switcher in mobile drawer */}
+              <div className="p-3 border-b border-slate-800/80">
+                <span className="block text-[10px] font-black text-slate-500 uppercase tracking-wider mb-1.5 px-1">Toko Aktif</span>
+                <select
+                  value={currentStoreId || ''}
+                  onChange={(e) => {
+                    switchStore(e.target.value);
+                    setIsSidebarOpen(false);
+                    router.refresh();
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 text-white rounded-lg text-xs p-2.5 font-semibold outline-none"
+                >
+                  {stores.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+
               {/* Mobile links */}
-              <nav className="flex-1 p-4 flex flex-col gap-1 overflow-y-auto">
+              <nav className="flex-1 p-3 flex flex-col gap-1 overflow-y-auto">
                 {filteredLinks.map((link) => {
                   const isActive = pathname === link.path;
                   return (
@@ -388,7 +438,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       key={link.path}
                       href={link.path}
                       onClick={() => setIsSidebarOpen(false)}
-                      className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                      className={`flex items-center gap-3 px-3.5 py-3 rounded-lg text-sm font-semibold transition-all min-h-[48px] ${
                         isActive
                           ? 'bg-blue-600/15 text-blue-400 border-l-4 border-blue-500 pl-3'
                           : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/50'
@@ -402,13 +452,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </nav>
 
               {/* Mobile Logout */}
-              <div className="p-4 border-t border-slate-800">
+              <div className="p-4 border-t border-slate-800 bg-slate-950/40">
                 <button
                   onClick={() => {
                     logout();
                     router.push('/login');
                   }}
-                  className="w-full flex items-center gap-2 justify-center px-4 py-2 text-xs font-bold text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all cursor-pointer"
+                  className="w-full flex items-center gap-2 justify-center px-4 py-3 text-xs font-bold text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-all cursor-pointer min-h-[48px]"
                 >
                   <LogOut className="h-4 w-4" />
                   <span>Keluar Akun</span>
@@ -419,7 +469,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}
 
         {/* Content Render */}
-        <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-6 md:p-8">
+        <main className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950 p-4 sm:p-6 lg:p-8">
           {canClaimTrial && (
             <div className="mb-6 p-4 rounded-xl border border-amber-300 dark:border-amber-500/25 bg-amber-50 dark:bg-amber-500/5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 animate-zoom-in">
               <div className="flex items-center gap-3">

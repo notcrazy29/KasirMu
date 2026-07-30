@@ -2,8 +2,8 @@ import React, { HTMLAttributes, TdHTMLAttributes, ThHTMLAttributes } from 'react
 
 export const Table = ({ className = '', children, ...props }: HTMLAttributes<HTMLTableElement>) => {
   return (
-    <div className="w-full overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg">
-      <table className={`w-full border-collapse text-left text-sm text-slate-500 dark:text-slate-400 ${className}`} {...props}>
+    <div className="w-full overflow-x-auto border border-slate-200 dark:border-slate-800 rounded-lg shadow-sm">
+      <table className={`w-full border-collapse text-left text-xs sm:text-sm text-slate-500 dark:text-slate-400 ${className}`} {...props}>
         {children}
       </table>
     </div>

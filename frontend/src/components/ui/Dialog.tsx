@@ -45,35 +45,36 @@ export const Dialog = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm animate-fade-in">
       <div 
         className="fixed inset-0" 
         onClick={onClose} 
       />
       <div
-        className={`relative w-full ${maxWidths[maxWidth]} bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl shadow-xl overflow-hidden flex flex-col max-h-[90vh] z-10 scale-95 opacity-0 animate-zoom-in`}
+        className={`relative w-full ${maxWidths[maxWidth]} bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-t-2xl sm:rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] sm:max-h-[90vh] z-10 scale-95 opacity-0 animate-zoom-in`}
         style={{ animationFillMode: 'forwards' }}
       >
         {/* Header */}
         {(title || description) && (
-          <div className="p-5 border-b border-slate-100 dark:border-slate-800/60 flex justify-between items-start">
+          <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-slate-800/60 flex justify-between items-start gap-3">
             <div>
               {title && (
-                <h3 className="text-base font-bold text-slate-950 dark:text-white leading-none">
+                <h3 className="text-sm sm:text-base font-bold text-slate-950 dark:text-white leading-tight">
                   {title}
                 </h3>
               )}
               {description && (
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1.5 leading-tight">
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-tight">
                   {description}
                 </p>
               )}
             </div>
             <button
               onClick={onClose}
-              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+              className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 cursor-pointer p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center shrink-0"
+              aria-label="Close dialog"
             >
-              <svg className="h-4.5 w-4.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" />
               </svg>
             </button>

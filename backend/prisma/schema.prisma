@@ -85,7 +85,15 @@ model Store {
   id        String   @id @default(uuid())
   name      String
   address   String?
+  district  String?
+  city      String?
+  province  String?
+  postalCode String?
   phone     String?
+  whatsapp  String?
+  instagram String?
+  website   String?
+  footerNote String?  @default("Terima kasih telah berbelanja")
   logo      String?
   status    String   @default("ACTIVE") // ACTIVE, SUSPENDED
   ownerId   String

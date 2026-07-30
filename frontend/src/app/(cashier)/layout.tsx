@@ -80,44 +80,47 @@ export default function CashierLayout({ children }: { children: React.ReactNode 
   return (
     <div className="flex-1 flex flex-col h-screen bg-slate-50 dark:bg-slate-950 overflow-hidden text-slate-850 dark:text-slate-100">
       {/* Cashier Minimal Top Navbar */}
-      <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-6 py-4 flex items-center justify-between shadow-sm">
+      <header className="sticky top-0 z-40 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-3 sm:px-6 py-2.5 sm:py-3 flex items-center justify-between shadow-sm shrink-0">
         <div className="flex items-center gap-2">
-          <div className="bg-blue-600 p-1.5 rounded text-white font-black text-xs">KM</div>
-          <span className="text-base font-bold tracking-tight text-slate-900 dark:text-white">
-            Kasir<span className="text-blue-500">Mu</span> <span className="text-slate-500 dark:text-slate-400 text-xs font-semibold">POS</span>
+          <div className="bg-blue-600 p-1.5 rounded text-white font-black text-xs shrink-0">KM</div>
+          <span className="text-sm sm:text-base font-bold tracking-tight text-slate-900 dark:text-white truncate">
+            Kasir<span className="text-blue-500">Mu</span> <span className="text-slate-500 dark:text-slate-400 text-[10px] sm:text-xs font-semibold hidden xs:inline">POS</span>
           </span>
         </div>
 
         {/* Navigation Tabs (Only show if cashier has associated store) */}
         {user?.storeId && (
-          <nav className="flex items-center gap-6 text-xs font-bold text-slate-800 dark:text-slate-300">
+          <nav className="flex items-center gap-2 sm:gap-6 text-xs font-bold text-slate-800 dark:text-slate-300">
             <Link 
               href="/pos" 
-              className={`flex items-center gap-1.5 transition-colors ${pathname === '/pos' ? 'text-blue-600 dark:text-blue-400' : 'hover:text-slate-900 dark:hover:text-white'}`}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors min-h-[38px] ${pathname === '/pos' ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 font-extrabold' : 'hover:text-slate-900 dark:hover:text-white'}`}
             >
-              <ShoppingCart className="h-4 w-4" />
-              <span>POS Kasir</span>
+              <ShoppingCart className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">POS Kasir</span>
+              <span className="sm:hidden">POS</span>
             </Link>
             <Link 
               href="/pos/history" 
-              className={`flex items-center gap-1.5 transition-colors ${pathname === '/pos/history' ? 'text-blue-600 dark:text-blue-400' : 'hover:text-slate-900 dark:hover:text-white'}`}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors min-h-[38px] ${pathname === '/pos/history' ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 font-extrabold' : 'hover:text-slate-900 dark:hover:text-white'}`}
             >
-              <History className="h-4 w-4" />
-              <span>Riwayat</span>
+              <History className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Riwayat</span>
+              <span className="sm:hidden">Riwayat</span>
             </Link>
             <Link 
               href="/pos/shift" 
-              className={`flex items-center gap-1.5 transition-colors ${pathname === '/pos/shift' ? 'text-blue-600 dark:text-blue-400' : 'hover:text-slate-900 dark:hover:text-white'}`}
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors min-h-[38px] ${pathname === '/pos/shift' ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 font-extrabold' : 'hover:text-slate-900 dark:hover:text-white'}`}
             >
-              <KeyRound className="h-4 w-4" />
-              <span>Shift Drawer</span>
+              <KeyRound className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Shift Drawer</span>
+              <span className="sm:hidden">Shift</span>
             </Link>
           </nav>
         )}
 
         {/* User profile & Log out */}
-        <div className="flex items-center gap-4 text-xs">
-          <div className="text-right hidden sm:block">
+        <div className="flex items-center gap-2 sm:gap-4 text-xs shrink-0">
+          <div className="text-right hidden md:block">
             <span className="block font-bold text-slate-900 dark:text-white leading-none">{user?.name}</span>
             <span className="block text-[10px] text-slate-500 font-bold uppercase mt-1">Cashier</span>
           </div>
@@ -126,8 +129,9 @@ export default function CashierLayout({ children }: { children: React.ReactNode 
 
           <button
             onClick={handleExitClick}
-            className="text-slate-500 dark:text-slate-400 hover:text-red-650 dark:hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer"
-            title="Keluar Akun"
+            className="text-slate-500 dark:text-slate-400 hover:text-red-650 dark:hover:text-red-400 p-2 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+            title="Keluar Mode Kasir"
+            aria-label="Keluar Mode Kasir"
           >
             <LogOut className="h-4 w-4" />
           </button>

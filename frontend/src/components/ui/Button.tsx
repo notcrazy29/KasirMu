@@ -1,7 +1,7 @@
 import React, { ButtonHTMLAttributes, forwardRef } from 'react';
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'destructive' | 'danger';
   size?: 'sm' | 'md' | 'lg';
   isLoading?: boolean;
 }
@@ -16,12 +16,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       outline: 'bg-transparent border border-slate-300 text-slate-700 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800',
       ghost: 'bg-transparent text-slate-700 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white',
       destructive: 'bg-red-600 hover:bg-red-700 text-white shadow-sm border border-transparent',
+      danger: 'bg-red-600 hover:bg-red-700 text-white shadow-sm border border-transparent',
     };
 
     const sizes = {
-      sm: 'px-3 py-1.5 text-xs',
-      md: 'px-4 py-2 text-sm',
-      lg: 'px-5 py-2.5 text-base',
+      sm: 'px-3 py-2 text-xs min-h-[40px] sm:min-h-[36px]',
+      md: 'px-4 py-2.5 sm:py-2 text-xs sm:text-sm min-h-[44px] sm:min-h-[40px]',
+      lg: 'px-5 py-3 sm:py-2.5 text-sm sm:text-base min-h-[48px]',
     };
 
     return (

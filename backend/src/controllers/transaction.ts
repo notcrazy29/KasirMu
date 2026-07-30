@@ -229,7 +229,9 @@ export const createTransaction = async (req: AuthRequest, res: Response, next: N
         },
         include: {
           items: true,
+          store: true,
         },
+
       });
 
       // Update inventory stocks and log
@@ -460,6 +462,7 @@ export const getTransactions = async (req: AuthRequest, res: Response, next: Nex
         items: true,
         payment: true,
         branch: { select: { name: true } },
+        store: true,
       },
       orderBy: { createdAt: 'desc' },
       take: 100, // limit to 100 latest

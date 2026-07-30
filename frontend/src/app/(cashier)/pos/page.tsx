@@ -224,10 +224,11 @@ interface TransactionDetails {
   total: number;
   paymentMethod: string;
   createdAt: string;
+  store?: any;
 }
 
 export default function PosPage() {
-  const { user, currentStoreId, switchStore, login } = useAuthStore();
+  const { user, stores = [], currentStoreId, switchStore, login } = useAuthStore();
   const { cart, discount, addToCart, removeFromCart, updateQuantity, setDiscount, clearCart, getSubtotal, getTotal, getItemCount } = useCartStore();
   const socket = useSocket();
 
@@ -298,6 +299,7 @@ export default function PosPage() {
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [flatDiscount, setFlatDiscount] = useState(0);
   const [hasPaymentMethodError, setHasPaymentMethodError] = useState(false);
+  const [isMobileCartOpen, setIsMobileCartOpen] = useState(false);
 
   // Step Wizard States
   const [isCheckoutWizardOpen, setIsCheckoutWizardOpen] = useState(false);
@@ -956,15 +958,29 @@ export default function PosPage() {
         </div>
       </section>
 
-      {/* RIGHT PANEL: ACTIVE SHOPPING CART & PAYMENT PANEL (Width 360px) */}
-      <section className="w-full lg:w-90 xl:w-96 shrink-0 bg-white/40 dark:bg-slate-900/50 flex flex-col min-h-0 border-l border-slate-200 dark:border-slate-800">
+      {/* RIGHT PANEL: ACTIVE SHOPPING CART & PAYMENT PANEL (Desktop: 360-384px, Mobile: Slide-up Drawer) */}
+      <section className={`w-full lg:w-90 xl:w-96 shrink-0 bg-white dark:bg-slate-900 flex flex-col min-h-0 border-l border-slate-200 dark:border-slate-800 transition-all ${
+        isMobileCartOpen 
+          ? 'fixed inset-x-0 bottom-0 top-14 z-50 flex shadow-2xl animate-zoom-in' 
+          : 'hidden lg:flex'
+      }`}>
         {/* Cart Header */}
-        <div className="p-4 border-b border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900 flex justify-between items-center shrink-0 shadow-[0_1px_3px_rgba(0,0,0,0.01)]">
-          <div className="flex items-center gap-1.5">
-            <ShoppingBag className="h-4.5 w-4.5 text-blue-600 dark:text-blue-400" />
-            <span className="font-bold text-slate-800 dark:text-white text-sm">Keranjang POS</span>
+        <div className="p-4 border-b border-slate-200 dark:border-slate-850 bg-white dark:bg-slate-900 flex justify-between items-center shrink-0 shadow-sm">
+          <div className="flex items-center gap-2">
+            <ShoppingBag className="h-5 w-5 text-blue-600 dark:text-blue-400 shrink-0" />
+            <span className="font-extrabold text-slate-900 dark:text-white text-sm sm:text-base">Keranjang POS</span>
           </div>
-          <Badge variant="primary">{getItemCount()} item</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="primary">{getItemCount()} item</Badge>
+            {isMobileCartOpen && (
+              <button 
+                onClick={() => setIsMobileCartOpen(false)}
+                className="lg:hidden text-slate-400 hover:text-slate-200 p-1.5 rounded-lg hover:bg-slate-800 cursor-pointer min-h-[44px] min-w-[44px] flex items-center justify-center"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Cart items list */}
@@ -988,17 +1004,17 @@ export default function PosPage() {
                     <div className="flex items-center gap-2 mt-2">
                       <button
                         onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                        className="p-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-750 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+                        className="p-2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-750 hover:text-slate-800 dark:hover:text-white cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
                       >
-                        <Minus className="h-3 w-3" />
+                        <Minus className="h-3.5 w-3.5" />
                       </button>
-                      <span className="text-xs font-bold text-slate-800 dark:text-white px-1.5">{item.quantity}</span>
+                      <span className="text-xs font-bold text-slate-800 dark:text-white px-2">{item.quantity}</span>
                       <button
                         onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                        className="p-1 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-750 hover:text-slate-800 dark:hover:text-white cursor-pointer"
+                        className="p-2 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-750 hover:text-slate-800 dark:hover:text-white cursor-pointer min-h-[36px] min-w-[36px] flex items-center justify-center"
                         disabled={item.quantity >= item.product.stock}
                       >
-                        <Plus className="h-3 w-3" />
+                        <Plus className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
@@ -1006,9 +1022,9 @@ export default function PosPage() {
                   <div className="flex flex-col justify-between items-end shrink-0">
                     <button
                       onClick={() => removeFromCart(item.product.id)}
-                      className="text-slate-500 hover:text-rose-500 p-1 cursor-pointer transition-colors"
+                      className="text-slate-500 hover:text-rose-500 p-1.5 cursor-pointer transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
                     >
-                      <Trash className="h-3.5 w-3.5" />
+                      <Trash className="h-4 w-4" />
                     </button>
                     <span className="text-xs font-black text-slate-800 dark:text-white">
                       {formatCurrency(Number(item.product.price) * item.quantity)}
@@ -1051,7 +1067,7 @@ export default function PosPage() {
                   setDiscount(val);
                 }}
                 disabled={cart.length === 0}
-                className="w-24 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md px-2 py-1 text-right text-xs font-bold text-slate-800 dark:text-white outline-none shadow-sm"
+                className="w-28 bg-white dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-md px-2.5 py-1.5 text-right text-xs font-bold text-slate-800 dark:text-white outline-none shadow-sm min-h-[40px]"
               />
             </div>
 
@@ -1074,7 +1090,7 @@ export default function PosPage() {
           <div className="grid grid-cols-2 gap-2 text-xs">
             <button
               onClick={() => setCheckoutMethod('CASH')}
-              className={`p-2.5 rounded-lg border font-bold flex items-center gap-1.5 justify-center cursor-pointer transition-all ${
+              className={`p-3 rounded-xl border font-bold flex items-center gap-1.5 justify-center cursor-pointer transition-all min-h-[48px] ${
                 checkoutMethod === 'CASH'
                   ? 'border-blue-500 bg-blue-600/10 text-blue-600 dark:text-blue-400'
                   : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 shadow-sm'
@@ -1085,7 +1101,7 @@ export default function PosPage() {
             </button>
             <button
               onClick={() => setCheckoutMethod('QRIS')}
-              className={`p-2.5 rounded-lg border font-bold flex items-center gap-1.5 justify-center cursor-pointer transition-all ${
+              className={`p-3 rounded-xl border font-bold flex items-center gap-1.5 justify-center cursor-pointer transition-all min-h-[48px] ${
                 checkoutMethod === 'QRIS'
                   ? 'border-blue-500 bg-blue-600/10 text-blue-600 dark:text-blue-400'
                   : 'border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 shadow-sm'
@@ -1099,7 +1115,7 @@ export default function PosPage() {
           {/* Submit Checkout Button */}
           <Button
             variant="primary"
-            className="w-full font-black tracking-wide uppercase py-3 shadow-lg shadow-blue-600/20"
+            className="w-full font-black tracking-wide uppercase py-3 shadow-lg shadow-blue-600/20 min-h-[48px] text-xs sm:text-sm"
             disabled={cart.length === 0}
             onClick={handleOpenCheckoutWizard}
             isLoading={isCheckoutLoading}
@@ -1108,6 +1124,38 @@ export default function PosPage() {
           </Button>
         </div>
       </section>
+
+      {/* Floating Sticky Bottom Bar for Mobile Devices */}
+      {cart.length > 0 && !isMobileCartOpen && (
+        <div className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-3 flex items-center justify-between shadow-2xl animate-fade-in">
+          <button 
+            onClick={() => setIsMobileCartOpen(true)}
+            className="flex items-center gap-3 text-left"
+          >
+            <div className="relative bg-blue-600 p-2.5 rounded-xl text-white shadow-md">
+              <ShoppingBag className="h-5 w-5" />
+              <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white font-black text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-white dark:border-slate-900">
+                {getItemCount()}
+              </span>
+            </div>
+            <div>
+              <span className="block text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Total POS</span>
+              <span className="block text-sm font-extrabold text-slate-900 dark:text-white leading-tight">
+                {formatCurrency(getGrandTotal())}
+              </span>
+            </div>
+          </button>
+
+          <Button
+            variant="primary"
+            className="font-black text-xs px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-1.5 min-h-[44px]"
+            onClick={() => setIsMobileCartOpen(true)}
+          >
+            <span>Lihat Keranjang</span>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
 
       {/* CHECKOUT WIZARD DIALOG MODAL */}
       <Dialog
@@ -1414,7 +1462,9 @@ export default function PosPage() {
         )}
 
         {/* STEP 4: RECEIPT */}
-        {wizardStep === 'RECEIPT' && checkoutResponse?.transaction && (
+        {wizardStep === 'RECEIPT' && checkoutResponse?.transaction && (() => {
+          const receiptStore = checkoutResponse.transaction.store || (stores || []).find((s) => s.id === currentStoreId) || (stores || [])[0];
+          return (
           <div className="flex flex-col gap-5">
             {/* The Print Container */}
             <div 
@@ -1423,17 +1473,37 @@ export default function PosPage() {
             >
               {/* Header */}
               <div className="text-center flex flex-col gap-0.5 border-b border-dashed border-slate-800 pb-3">
-                <span className="text-xs font-black text-white uppercase tracking-wider">
-                  ==================================
-                </span>
+                {/* Logo */}
+                {receiptStore?.logo ? (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={receiptStore.logo} alt="Logo Struk" className="w-12 h-12 object-contain mx-auto mb-1" />
+                ) : (
+                  <div className="bg-blue-600 text-white font-black text-[9px] px-2 py-0.5 rounded mx-auto mb-1 w-fit">
+                    KasirMu POS
+                  </div>
+                )}
+
                 <span className="text-[11px] font-extrabold text-white uppercase tracking-wider block">
-                  SMARTPOS
+                  {receiptStore?.name || (user as any)?.storeName || 'KasirMu Outlet'}
                 </span>
-                <span className="text-[11px] font-extrabold text-white uppercase tracking-wider block">
-                  {(user as any)?.storeName || 'Cafe Bahagia'}
-                </span>
-                <span className="text-[9px] text-slate-500">Jl. Contoh No.10</span>
-                <span className="text-xs font-black text-white uppercase tracking-wider">
+
+                {receiptStore?.address && (
+                  <span className="text-[9px] text-slate-400 block">{receiptStore.address}</span>
+                )}
+
+                {(receiptStore?.district || receiptStore?.city || receiptStore?.province || receiptStore?.postalCode) && (
+                  <span className="text-[9px] text-slate-400 block">
+                    {[receiptStore.district, receiptStore.city, receiptStore.province, receiptStore.postalCode].filter(Boolean).join(', ')}
+                  </span>
+                )}
+
+                {receiptStore?.phone && (
+                  <span className="text-[9px] font-bold text-slate-300 block mt-0.5">
+                    Telp : {receiptStore.phone}
+                  </span>
+                )}
+
+                <span className="text-xs font-black text-white uppercase tracking-wider block mt-1">
                   ==================================
                 </span>
               </div>
@@ -1541,17 +1611,41 @@ export default function PosPage() {
                 <div className="py-3 border-t border-dashed border-slate-800 flex flex-col items-center gap-1.5">
                   <span className="text-[7px] text-slate-500 uppercase tracking-widest">SCAN DETAIL TRANSAKSI (OWNER)</span>
                   <div className="bg-white p-1 rounded mx-auto">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={qrCodeDataUrl} alt="Transaction QR" className="w-20 h-20 mx-auto" />
                   </div>
                 </div>
               )}
 
               {/* Footer */}
-              <div className="text-center pt-3 border-t border-dashed border-slate-800/80 mt-1 text-[8px] text-slate-500">
-                <span>Terima kasih</span>
-                <span className="block mt-0.5">==================================</span>
+              <div className="text-center pt-3 border-t border-dashed border-slate-800/80 mt-1 text-[8px] text-slate-400 flex flex-col gap-1">
+                <span className="font-bold text-white block">
+                  {receiptStore?.footerNote || 'Terima kasih telah berbelanja'}
+                </span>
+
+                {receiptStore?.whatsapp && (
+                  <span className="block">
+                    WhatsApp : <strong className="text-white">{receiptStore.whatsapp}</strong>
+                  </span>
+                )}
+                {receiptStore?.instagram && (
+                  <span className="block">
+                    Instagram : <strong className="text-white">{receiptStore.instagram}</strong>
+                  </span>
+                )}
+                {receiptStore?.website && (
+                  <span className="block">
+                    Website : <strong className="text-white">{receiptStore.website}</strong>
+                  </span>
+                )}
+
+                <div className="mt-2 pt-2 border-t border-dashed border-slate-800 text-[7.5px] text-slate-500 tracking-widest uppercase">
+                  Powered by KasirMu POS
+                </div>
+                <span className="block text-[7px] text-slate-600">==================================</span>
               </div>
             </div>
+          
 
             {/* Action buttons */}
             <div className="flex gap-2.5 justify-end">
@@ -1569,25 +1663,30 @@ export default function PosPage() {
                           <head>
                             <title>Print Receipt</title>
                             <style>
-                              body { font-family: monospace; font-size: 10px; color: black; background: white; padding: 20px; width: 300px; }
+                              body { font-family: monospace; font-size: 10px; color: black; background: white; padding: 10px; width: 280px; }
                               .text-center { text-align: center; }
                               .flex { display: flex; }
+                              .flex-col { flex-direction: column; }
                               .justify-between { justify-content: space-between; }
                               .border-b { border-bottom: 1px dashed black; }
-                              .pb-3 { padding-bottom: 12px; }
-                              .py-2.5 { padding-top: 10px; padding-bottom: 10px; }
-                              .py-3 { padding-top: 12px; padding-bottom: 12px; }
+                              .border-t { border-top: 1px dashed black; }
+                              .pb-3 { padding-bottom: 8px; }
+                              .pt-3 { padding-top: 8px; }
+                              .py-2.5 { padding-top: 6px; padding-bottom: 6px; }
+                              .py-3 { padding-top: 8px; padding-bottom: 8px; }
                               .font-semibold { font-weight: 600; }
-                              .font-black { font-weight: 950; }
-                              .text-xs { font-size: 12px; }
-                              .text-blue-400 { font-weight: bold; }
-                              .text-emerald-400 { font-weight: bold; }
+                              .font-bold { font-weight: 700; }
+                              .font-extrabold { font-weight: 800; }
+                              .font-black { font-weight: 900; }
+                              .text-xs { font-size: 11px; }
+                              .text-white, .text-slate-300, .text-slate-400, .text-slate-500, .text-slate-600, .text-blue-400, .text-emerald-400 { color: black !important; }
                               .mx-auto { margin-left: auto; margin-right: auto; }
                               .block { display: block; }
                               .mt-1 { margin-top: 4px; }
                               .mt-0.5 { margin-top: 2px; }
-                              img { display: block; margin: 10px auto; }
+                              img { display: block; margin: 4px auto; max-width: 60px; max-height: 60px; }
                             </style>
+
                           </head>
                           <body>
                             ${printContents}
@@ -1617,7 +1716,8 @@ export default function PosPage() {
               </Button>
             </div>
           </div>
-        )}
+          );
+        })()}
       </Dialog>
     </div>
   );

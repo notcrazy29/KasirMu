@@ -231,7 +231,7 @@ export default function DashboardOverview() {
     socket.on('subscription_grace_period', (data: { planName: string; gracePeriodUntil: string; message: string }) => {
       console.log('[Socket] Subscription grace period:', data);
       setToast({ message: data.message || '⚠️ Langganan Premium Anda telah berakhir. Masa Tenggang aktif.', type: 'warning' });
-      updateFromGracePeriodSocket(data);
+      updateFromGracePeriodSocket({ isGracePeriod: true, gracePeriodUntil: data.gracePeriodUntil, message: data.message });
     });
 
     socket.on('subscription_expired', (data: { planName: string; message: string }) => {

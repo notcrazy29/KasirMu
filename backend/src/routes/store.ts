@@ -10,6 +10,8 @@ import {
   verifyStorePin,
   updateStorePin,
   updateStoreMidtrans,
+  updateStoreProfile,
+  updateStoreProfileSchema,
 } from '../controllers/store';
 import { authenticate, authorize } from '../middlewares/auth';
 import { validateRequest } from '../middlewares/validation';
@@ -24,6 +26,8 @@ router.post('/', authorize(['OWNER']), checkLimit('store'), validateRequest(crea
 
 router.get('/', getStores);
 router.get('/:storeId', getStoreDetails);
+router.put('/:storeId/profile', authorize(['OWNER']), validateRequest(updateStoreProfileSchema), updateStoreProfile);
+router.post('/:storeId/profile', authorize(['OWNER']), validateRequest(updateStoreProfileSchema), updateStoreProfile);
 router.post('/:storeId/branches', authorize(['OWNER']), validateRequest(createBranchSchema), createBranch);
 router.get('/:storeId/branches', getBranches);
 router.post('/:storeId/verify-pin', verifyStorePin);
