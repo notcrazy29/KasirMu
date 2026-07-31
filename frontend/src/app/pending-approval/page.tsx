@@ -4,8 +4,6 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/useAuthStore';
 import { api } from '@/lib/api';
-import { auth } from '@/lib/firebase';
-import { RecaptchaVerifier, signInWithPhoneNumber, ConfirmationResult } from 'firebase/auth';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
@@ -81,7 +79,7 @@ export default function PendingApprovalPage() {
   const [otpErrorCount, setOtpErrorCount] = useState(0);
   const [isLocked, setIsLocked] = useState(false);
   const [lockTimeLeft, setLockTimeLeft] = useState(0);
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
+
 
   // Step 4 NIK Trial Claim State
   const [nikInput, setNikInput] = useState('');
@@ -285,7 +283,7 @@ export default function PendingApprovalPage() {
     }
   };
 
-  // Handle Send OTP (Firebase SMS + Fallback to Backend)
+  // Handle Send OTP (via Fonnte WhatsApp through backend)
   const handleSendOTP = async () => {
     if (!phoneNumber) {
       setErrorMsg('Nomor telepon wajib diisi untuk verifikasi OTP.');
@@ -296,69 +294,25 @@ export default function PendingApprovalPage() {
     setErrorMsg('');
     setSuccessMsg('');
 
-    // Format phone number to international (+62...)
-    let formattedPhone = phoneNumber.trim().replace(/[^0-9+]/g, '');
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '+62' + formattedPhone.slice(1);
-    } else if (!formattedPhone.startsWith('+')) {
-      formattedPhone = '+' + formattedPhone;
-    }
-
-    try {
-      // 1. Try Firebase SMS OTP
-      if (typeof window !== 'undefined' && auth) {
-        // Clear DOM element to avoid 'reCAPTCHA has already been rendered'
-        const container = document.getElementById('recaptcha-container');
-        if (container) {
-          container.innerHTML = '';
-        }
-        
-        (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-          size: 'invisible',
-          callback: () => {},
-        });
-
-        const appVerifier = (window as any).recaptchaVerifier;
-        const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
-        setConfirmationResult(result);
-        setIsOtpSent(true);
-        setCooldown(60);
-        setResendCount((prev) => prev + 1);
-        setSuccessMsg(`Kode SMS OTP 6 digit berhasil dikirim oleh Google Firebase ke ${formattedPhone}!`);
-        setIsSubmitting(false);
-        return;
-      }
-    } catch (firebaseErr: any) {
-      console.error('[Firebase Auth Error]', firebaseErr);
-      const container = document.getElementById('recaptcha-container');
-      if (container) container.innerHTML = '';
-      (window as any).recaptchaVerifier = null;
-
-      setErrorMsg(`Gagal pengiriman SMS Firebase (${firebaseErr.code || firebaseErr.message || 'Error'}). Silakan coba lagi.`);
-      setIsSubmitting(false);
-      return;
-    }
-
-    // 2. Fallback to Backend OTP
     try {
       const res = await api.post('/auth/otp/send', { phone: phoneNumber });
       setIsOtpSent(true);
       setCooldown(res.resendCooldown || 60);
       setResendCount((prev) => prev + 1);
-      setSuccessMsg('Kode OTP 6 digit berhasil dikirim!');
+      setSuccessMsg('Kode OTP 6 digit berhasil dikirim via WhatsApp!');
     } catch (err: any) {
       console.error(err);
       setErrorMsg(err.message || 'Gagal mengirim OTP. Terlalu banyak mencoba?');
       if (err.message && err.message.includes('tercapai')) {
         setIsLocked(true);
-        setLockTimeLeft(900); // 15 mins lock
+        setLockTimeLeft(900);
       }
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Handle Verify OTP
+  // Handle Verify OTP (via backend Fonnte)
   const handleVerifyOTP = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!otpCode || otpCode.length !== 6) {
@@ -371,29 +325,6 @@ export default function PendingApprovalPage() {
     setSuccessMsg('');
 
     try {
-      if (confirmationResult) {
-        // Confirm via Firebase SMS OTP
-        await confirmationResult.confirm(otpCode);
-        const res = await api.post('/auth/otp/verify', { code: otpCode, isFirebase: true, phone: phoneNumber });
-        updateUser({ 
-          status: 'PENDING_APPROVAL',
-          username: res.user?.username,
-          hasPassword: res.user?.hasPassword,
-          phoneVerified: true,
-        });
-
-        if (res.user && !res.user.hasPassword) {
-          setSubStep('CREATE_PASSWORD');
-          setSuccessMsg('Verifikasi nomor telepon via SMS Firebase berhasil! Silakan tentukan password akun Anda.');
-        } else {
-          setSubStep('REGISTRATION_SUCCESS');
-          setSuccessMsg('Registrasi Berhasil!');
-        }
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Backend OTP Verify fallback
       const res = await api.post('/auth/otp/verify', { code: otpCode });
       updateUser({ 
         status: 'PENDING_APPROVAL',
