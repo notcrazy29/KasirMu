@@ -307,15 +307,17 @@ export default function PendingApprovalPage() {
     try {
       // 1. Try Firebase SMS OTP
       if (typeof window !== 'undefined' && auth) {
-        if ((window as any).recaptchaVerifier) {
-          try {
-            (window as any).recaptchaVerifier.clear();
-          } catch (e) {}
+        // Clear DOM element to avoid 'reCAPTCHA has already been rendered'
+        const container = document.getElementById('recaptcha-container');
+        if (container) {
+          container.innerHTML = '';
         }
+        
         (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
           size: 'invisible',
           callback: () => {},
         });
+
         const appVerifier = (window as any).recaptchaVerifier;
         const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
         setConfirmationResult(result);
@@ -328,7 +330,10 @@ export default function PendingApprovalPage() {
       }
     } catch (firebaseErr: any) {
       console.error('[Firebase Auth Error]', firebaseErr);
-      // Display explicit Firebase error to user
+      const container = document.getElementById('recaptcha-container');
+      if (container) container.innerHTML = '';
+      (window as any).recaptchaVerifier = null;
+
       setErrorMsg(`Gagal pengiriman SMS Firebase (${firebaseErr.code || firebaseErr.message || 'Error'}). Silakan coba lagi.`);
       setIsSubmitting(false);
       return;
