@@ -307,12 +307,15 @@ export default function PendingApprovalPage() {
     try {
       // 1. Try Firebase SMS OTP
       if (typeof window !== 'undefined' && auth) {
-        if (!(window as any).recaptchaVerifier) {
-          (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-            size: 'invisible',
-            callback: () => {},
-          });
+        if ((window as any).recaptchaVerifier) {
+          try {
+            (window as any).recaptchaVerifier.clear();
+          } catch (e) {}
         }
+        (window as any).recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
+          size: 'invisible',
+          callback: () => {},
+        });
         const appVerifier = (window as any).recaptchaVerifier;
         const result = await signInWithPhoneNumber(auth, formattedPhone, appVerifier);
         setConfirmationResult(result);
@@ -324,7 +327,11 @@ export default function PendingApprovalPage() {
         return;
       }
     } catch (firebaseErr: any) {
-      console.warn('[Firebase Auth Warn] Fallback to Backend OTP:', firebaseErr);
+      console.error('[Firebase Auth Error]', firebaseErr);
+      // Display explicit Firebase error to user
+      setErrorMsg(`Gagal pengiriman SMS Firebase (${firebaseErr.code || firebaseErr.message || 'Error'}). Silakan coba lagi.`);
+      setIsSubmitting(false);
+      return;
     }
 
     // 2. Fallback to Backend OTP
