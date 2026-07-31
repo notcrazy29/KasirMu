@@ -181,22 +181,32 @@ class FonnteProvider implements OTPProvider {
       return false;
     }
 
+    // Normalize phone: strip leading 0, use raw digits (countryCode handles the +62 prefix)
+    let normalizedPhone = phone.trim().replace(/[^0-9]/g, '');
+    if (normalizedPhone.startsWith('62')) {
+      normalizedPhone = normalizedPhone.slice(2); // remove 62 prefix, countryCode will add it
+    } else if (normalizedPhone.startsWith('0')) {
+      normalizedPhone = normalizedPhone.slice(1); // remove leading 0, countryCode will add +62
+    }
+
     try {
+      const formData = new FormData();
+      formData.append('target', normalizedPhone);
+      formData.append('message', `[KasirMu] Kode OTP registrasi Anda adalah *${code}*. Berlaku selama 5 menit. Jangan berikan kode ini kepada siapapun.`);
+      formData.append('countryCode', '62');
+
       const response = await fetch('https://api.fonnte.com/send', {
         method: 'POST',
         headers: {
           'Authorization': token,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          target: phone,
-          message: `[KasirMu] Kode OTP registrasi Anda adalah *${code}*. Berlaku selama 5 menit. Jangan berikan kode ini kepada siapapun termasuk pihak KasirMu.`,
-        }),
+        body: formData,
       });
 
       const data = await response.json() as any;
+      console.log(`[Fonnte OTP] API Response for ${normalizedPhone}:`, JSON.stringify(data));
       if (data.status === true) {
-        console.log(`[Fonnte OTP] WhatsApp message sent successfully to ${phone}`);
+        console.log(`[Fonnte OTP] WhatsApp message sent successfully to +62${normalizedPhone}`);
         return true;
       } else {
         console.error('[Fonnte OTP Error]', data);
