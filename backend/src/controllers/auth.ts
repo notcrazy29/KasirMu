@@ -980,7 +980,59 @@ export const sendOTP = async (req: Request, res: Response, next: NextFunction) =
 export const verifyOTP = async (req: Request, res: Response, next: NextFunction) => {
   try {
     const userId = (req as any).user.id;
-    const { code } = req.body;
+    const { code, isFirebase, phone: submittedPhone } = req.body;
+
+    if (isFirebase) {
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return res.status(404).json({ message: 'User tidak ditemukan' });
+      }
+
+      const targetPhone = submittedPhone || user.phone;
+      let updatedUser = await prisma.user.update({
+        where: { id: userId },
+        data: {
+          phone: targetPhone,
+          phoneVerified: true,
+          status: 'PENDING_APPROVAL',
+        }
+      });
+
+      if (!updatedUser.username) {
+        const generatedUsername = await generateUniqueUsername(updatedUser.name || 'user', updatedUser.email);
+        updatedUser = await prisma.user.update({
+          where: { id: userId },
+          data: { username: generatedUsername }
+        });
+      }
+
+      await logAudit({
+        action: 'VERIFY_OTP_FIREBASE',
+        actorId: userId,
+        description: `Phone ${targetPhone} successfully verified via Firebase. Username: ${updatedUser.username}.`,
+      });
+
+      const jwtToken = jwt.sign(
+        { id: updatedUser.id, role: updatedUser.role, email: updatedUser.email, status: updatedUser.status },
+        process.env.JWT_SECRET || 'secret',
+        { expiresIn: '7d' }
+      );
+
+      return res.json({
+        message: 'Nomor telepon berhasil diverifikasi via Firebase',
+        token: jwtToken,
+        user: {
+          id: updatedUser.id,
+          name: updatedUser.name,
+          email: updatedUser.email,
+          role: updatedUser.role,
+          status: updatedUser.status,
+          username: updatedUser.username,
+          hasPassword: !!updatedUser.password,
+          phoneVerified: true,
+        }
+      });
+    }
 
     if (!code || code.length !== 6) {
       return res.status(400).json({ message: 'Kode OTP harus berupa 6 digit angka' });

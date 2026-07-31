@@ -300,21 +300,10 @@ class KomerceOTPProvider implements OTPProvider {
   }
 }
 
-// 8. Baileys Native WhatsApp Provider
-class BaileysProvider implements OTPProvider {
-  name = 'BaileysProvider';
-
-  async sendOTP(phone: string, code: string): Promise<boolean> {
-    const { whatsappService } = require('./whatsapp');
-    return whatsappService.sendOTP(phone, code);
-  }
-}
-
 // Notification Service manager class
 export class NotificationService {
   private static providers: Record<string, OTPProvider> = {
     mock: new MockProvider(),
-    baileys: new BaileysProvider(),
     twilio: new TwilioProvider(),
     vonage: new VonageProvider(),
     messagebird: new MessageBirdProvider(),

@@ -59,19 +59,9 @@ router.post('/profile/update-email', authenticate, updateEmail);
 router.post('/otp/send', authenticate, sendOTP);
 router.post('/otp/verify', authenticate, verifyOTP);
 
-// WhatsApp Pairing QR & Status Route
-router.get('/whatsapp/qr', (req, res) => {
-  const { whatsappService } = require('../services/whatsapp');
-  res.setHeader('Content-Type', 'text/html');
-  res.send(whatsappService.getHtmlPage());
-});
-
-router.get('/whatsapp/status', (req, res) => {
-  const { whatsappService } = require('../services/whatsapp');
-  res.json(whatsappService.getStatus());
-});
-
 // Email Change Verification
 router.get('/verify-email', verifyEmail);
 
 export default router;
+
+
