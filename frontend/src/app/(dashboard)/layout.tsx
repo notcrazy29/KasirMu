@@ -29,6 +29,7 @@ import {
   Sparkles,
   Check,
   User,
+  Printer,
 } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import Dialog from '../../components/ui/Dialog';
@@ -200,6 +201,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { name: 'Payment Gateway', path: '/dashboard/settings/payment-gateway', icon: <CreditCard className="h-4.5 w-4.5" />, proOnly: true },
     { name: 'Pengaturan Pajak', path: '/dashboard/settings/tax', icon: <Settings className="h-4.5 w-4.5" /> },
     { name: 'Profil Outlet & Struk', path: '/dashboard/settings/store', icon: <Store className="h-4.5 w-4.5" /> },
+    { name: 'Printer', path: '/dashboard/settings/printer', icon: <Printer className="h-4.5 w-4.5" /> },
     { name: 'Profil & Keamanan', path: '/dashboard/settings/profile', icon: <User className="h-4.5 w-4.5" /> },
 
     { name: 'Langganan', path: '/dashboard/subscription', icon: <CreditCard className="h-4.5 w-4.5" /> },

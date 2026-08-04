@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useAuthStore } from '../../store/useAuthStore';
-import { ShoppingCart, History, KeyRound, LogOut, Lock } from 'lucide-react';
+import { ShoppingCart, History, KeyRound, LogOut, Lock, Printer } from 'lucide-react';
 import ThemeToggle from '@/components/shared/ThemeToggle';
 import api from '@/lib/api';
 import Dialog from '@/components/ui/Dialog';
@@ -114,6 +114,14 @@ export default function CashierLayout({ children }: { children: React.ReactNode 
               <KeyRound className="h-4 w-4 shrink-0" />
               <span className="hidden sm:inline">Shift Drawer</span>
               <span className="sm:hidden">Shift</span>
+            </Link>
+            <Link 
+              href="/pos/printer" 
+              className={`flex items-center gap-1 sm:gap-1.5 px-2.5 py-1.5 rounded-lg transition-colors min-h-[38px] ${pathname === '/pos/printer' ? 'bg-blue-600/10 text-blue-600 dark:text-blue-400 font-extrabold' : 'hover:text-slate-900 dark:hover:text-white'}`}
+            >
+              <Printer className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Printer</span>
+              <span className="sm:hidden">Printer</span>
             </Link>
           </nav>
         )}

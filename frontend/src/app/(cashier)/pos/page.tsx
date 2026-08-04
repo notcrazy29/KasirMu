@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore, Product } from '@/store/useCartStore';
+import { usePrinterStore } from '@/store/usePrinterStore';
+import { ReceiptData } from '@/lib/escpos';
 import { useSocket } from '@/hooks/useSocket';
 import api from '@/lib/api';
 import Card, { CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/Card';
@@ -223,6 +225,8 @@ interface TransactionDetails {
   tax: number;
   total: number;
   paymentMethod: string;
+  paymentStatus?: string | null;
+  status?: string | null;
   createdAt: string;
   store?: any;
 }
@@ -370,7 +374,53 @@ export default function PosPage() {
 
   useEffect(() => {
     fetchPosInitialData();
+    usePrinterStore.getState().init();
   }, [currentStoreId]);
+
+  const triggerAutoPrintReceipt = (txRes: { transaction: TransactionDetails; payment?: PaymentDetails } | null) => {
+    if (!txRes?.transaction) return;
+    const tx = txRes.transaction;
+    const receiptStore = tx.store || (stores || []).find((s) => s.id === currentStoreId) || (stores || [])[0];
+
+    const receiptData: ReceiptData = {
+      transactionNumber: tx.transactionNumber,
+      invoiceNumber: tx.invoiceNumber,
+      queueNumber: tx.queueNumber,
+      customerName: tx.customerName || orderInfo?.customerName,
+      customerPhone: tx.customerPhone || orderInfo?.customerPhone,
+      tableNumber: tx.tableNumber || orderInfo?.tableNumber,
+      orderType: tx.orderType || orderInfo?.orderType,
+      cashierName: user?.name,
+      createdAt: tx.createdAt,
+      items: cart.map((item) => ({
+        productName: item.product.name,
+        quantity: item.quantity,
+        price: Number(item.product.price),
+        total: Number(item.product.price) * item.quantity,
+      })),
+      subtotal: Number(tx.subtotal || getSubtotal()),
+      discount: Number(tx.discount || discount),
+      tax: Number(tx.tax || 0),
+      total: Number(tx.total || getGrandTotal()),
+      paymentMethod: tx.paymentMethod,
+      paymentStatus: tx.paymentStatus || 'LUNAS',
+      store: {
+        name: receiptStore?.name || (user as any)?.storeName || 'KasirMu Outlet',
+        address: receiptStore?.address,
+        district: receiptStore?.district,
+        city: receiptStore?.city,
+        province: receiptStore?.province,
+        phone: receiptStore?.phone,
+        whatsapp: receiptStore?.whatsapp,
+        instagram: receiptStore?.instagram,
+        website: receiptStore?.website,
+        footerNote: receiptStore?.footerNote,
+        logo: receiptStore?.logo,
+      },
+    };
+
+    usePrinterStore.getState().printReceipt(receiptData);
+  };
 
   // Load Midtrans Snap JS Script dynamically based on store-level client key from PaymentGateway table
   useEffect(() => {
@@ -474,6 +524,7 @@ export default function PosPage() {
               fetchPosInitialData();
             }
             setWizardStep('RECEIPT');
+            triggerAutoPrintReceipt(checkoutResponse);
           } else if (status === 'FAILED' || status === 'EXPIRED' || status === 'CANCELLED') {
             clearInterval(intervalId);
             alert(`Transaksi pembayaran QRIS gagal atau kedaluwarsa: ${status}`);
@@ -676,6 +727,7 @@ export default function PosPage() {
         }
 
         setWizardStep('RECEIPT');
+        triggerAutoPrintReceipt(response);
       }
     } catch (err: any) {
       alert(err.message || 'Checkout transaksi gagal');
@@ -1648,7 +1700,17 @@ export default function PosPage() {
           
 
             {/* Action buttons */}
-            <div className="flex gap-2.5 justify-end">
+            <div className="flex flex-wrap gap-2.5 justify-end">
+              <Button
+                variant="secondary"
+                size="sm"
+                className="font-bold flex items-center gap-1 text-blue-500 border-blue-500/30 hover:bg-blue-500/10"
+                onClick={() => triggerAutoPrintReceipt(checkoutResponse)}
+              >
+                <Printer className="h-3.5 w-3.5 text-blue-400" />
+                <span>Cetak Thermal (Bluetooth)</span>
+              </Button>
+
               <Button
                 variant="outline"
                 size="sm"
