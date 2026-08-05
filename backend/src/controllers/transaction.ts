@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { createSnapPayment } from '../services/midtrans';
 import { emitToStore } from '../services/socket';
 import { checkFeatureAccess } from '../services/subscription';
+import { getDateRangeForPeriod, getWibStartOfDay, getWibEndOfDay } from '../utils/date';
 
 // Validation Schemas
 export const createTransactionSchema = z.object({
@@ -315,6 +316,7 @@ export const createTransaction = async (req: AuthRequest, res: Response, next: N
           },
           include: {
             items: true,
+            store: true,
           },
         });
 
@@ -394,14 +396,24 @@ export const getTransactions = async (req: AuthRequest, res: Response, next: Nex
     }
 
     const {
+      period,
+      startDate: customStartDate,
+      endDate: customEndDate,
+      date,
       invoiceNumber,
       queueNumber,
       customerName,
       customerPhone,
+      cashierId,
       cashierName,
       branchId,
-      date,
+      productId,
+      productName,
+      paymentMethod,
+      orderType,
+      status,
       search,
+      limit,
     } = req.query;
 
     const whereClause: any = { storeId };
@@ -410,35 +422,78 @@ export const getTransactions = async (req: AuthRequest, res: Response, next: Nex
       whereClause.branchId = branchId as string;
     }
 
+    if (paymentMethod && paymentMethod !== 'ALL' && paymentMethod !== 'SEMUA') {
+      whereClause.paymentMethod = paymentMethod as string;
+    }
+
+    if (orderType && orderType !== 'ALL' && orderType !== 'SEMUA') {
+      whereClause.orderType = orderType as string;
+    }
+
+    if (status && status !== 'ALL' && status !== 'SEMUA') {
+      whereClause.status = status as string;
+    }
+
     if (invoiceNumber) {
       whereClause.invoiceNumber = { contains: invoiceNumber as string };
     }
+
     if (queueNumber) {
       whereClause.queueNumber = { contains: queueNumber as string };
     }
+
     if (customerName) {
       whereClause.customerName = { contains: customerName as string };
     }
+
     if (customerPhone) {
       whereClause.customerPhone = { contains: customerPhone as string };
     }
-    if (cashierName) {
+
+    if (cashierId) {
+      whereClause.cashierId = cashierId as string;
+    } else if (cashierName) {
       whereClause.cashier = {
         name: { contains: cashierName as string },
       };
     }
-    if (date) {
-      const targetDate = new Date(date as string);
-      const startOfDay = new Date(targetDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      const endOfDay = new Date(targetDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      whereClause.createdAt = {
-        gte: startOfDay,
-        lte: endOfDay,
+
+    if (productId) {
+      whereClause.items = {
+        some: { productId: productId as string },
+      };
+    } else if (productName) {
+      whereClause.items = {
+        some: { productName: { contains: productName as string } },
       };
     }
 
+    // Handle date filtering
+    if (period) {
+      const range = getDateRangeForPeriod(
+        period as string,
+        customStartDate as string,
+        customEndDate as string
+      );
+      if (range.startDate || range.endDate) {
+        whereClause.createdAt = {};
+        if (range.startDate) whereClause.createdAt.gte = range.startDate;
+        if (range.endDate) whereClause.createdAt.lte = range.endDate;
+      }
+    } else if (customStartDate || customEndDate) {
+      const range = getDateRangeForPeriod('custom', customStartDate as string, customEndDate as string);
+      whereClause.createdAt = {};
+      if (range.startDate) whereClause.createdAt.gte = range.startDate;
+      if (range.endDate) whereClause.createdAt.lte = range.endDate;
+    } else if (date) {
+      const dateStr = date as string;
+      whereClause.createdAt = {
+        gte: getWibStartOfDay(dateStr),
+        lte: getWibEndOfDay(dateStr),
+      };
+    }
+
+    // Global Search
     if (search) {
       const searchStr = search as string;
       whereClause.OR = [
@@ -447,25 +502,35 @@ export const getTransactions = async (req: AuthRequest, res: Response, next: Nex
         { queueNumber: { contains: searchStr } },
         { customerName: { contains: searchStr } },
         { customerPhone: { contains: searchStr } },
+        { notes: { contains: searchStr } },
         {
           cashier: {
             name: { contains: searchStr },
           },
         },
+        {
+          items: {
+            some: {
+              productName: { contains: searchStr },
+            },
+          },
+        },
       ];
     }
+
+    const takeLimit = limit ? parseInt(limit as string, 10) : 500;
 
     const transactions = await prisma.transaction.findMany({
       where: whereClause,
       include: {
-        cashier: { select: { name: true } },
+        cashier: { select: { id: true, name: true, role: true } },
         items: true,
         payment: true,
-        branch: { select: { name: true } },
+        branch: { select: { id: true, name: true } },
         store: true,
       },
       orderBy: { createdAt: 'desc' },
-      take: 100, // limit to 100 latest
+      take: takeLimit,
     });
 
     return res.json({ transactions });

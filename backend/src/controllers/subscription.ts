@@ -407,7 +407,7 @@ export const verifySubscriptionPayment = async (req: AuthRequest, res: Response,
           clientKey: platformCreds.clientKey,
         });
 
-        const statusResponse: any = await core.transaction.status(orderId);
+        const statusResponse: any = await (core as any).transaction.status(orderId);
         const status = statusResponse.transaction_status;
         const fraud = statusResponse.fraud_status;
 

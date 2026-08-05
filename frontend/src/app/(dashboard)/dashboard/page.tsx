@@ -26,6 +26,9 @@ import {
   XCircle,
   RefreshCw,
   Timer,
+  TrendingUp,
+  Coins,
+  Receipt,
 } from 'lucide-react';
 import Link from 'next/link';
 
@@ -33,6 +36,9 @@ import Link from 'next/link';
 interface DashboardSummary {
   totalRevenue: number;
   totalTxCount: number;
+  totalProductsSold: number;
+  totalTax: number;
+  totalProfit: number;
   paymentSplit: { CASH: number; QRIS: number };
 }
 
@@ -118,6 +124,9 @@ export default function DashboardOverview() {
   const [summary, setSummary] = useState<DashboardSummary>({
     totalRevenue: 0,
     totalTxCount: 0,
+    totalProductsSold: 0,
+    totalTax: 0,
+    totalProfit: 0,
     paymentSplit: { CASH: 0, QRIS: 0 },
   });
   const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([]);
@@ -130,15 +139,15 @@ export default function DashboardOverview() {
   // Countdown for premium expiry
   const timeLeft = useCountdown(isPremium ? subscription?.endDate : null);
 
-  // Fetch initial analytics metrics
+  // Fetch initial analytics metrics for TODAY (Asia/Jakarta timezone)
   const fetchDashboardData = useCallback(async () => {
     if (!currentStoreId) return;
     try {
-      const stats = await api.get(`/analytics/dashboard?storeId=${currentStoreId}`);
+      const stats = await api.get(`/analytics/dashboard?storeId=${currentStoreId}&period=today`);
       setSummary(stats.summary);
       setStockAlerts(stats.stockAlerts);
       
-      const txResponse = await api.get(`/transactions?storeId=${currentStoreId}`);
+      const txResponse = await api.get(`/transactions?storeId=${currentStoreId}&period=today`);
       setRecentTransactions(txResponse.transactions.slice(0, 5));
     } catch (err) {
       console.error('Failed to load dashboard statistics:', err);
@@ -149,6 +158,19 @@ export default function DashboardOverview() {
 
   useEffect(() => {
     fetchDashboardData();
+  }, [fetchDashboardData]);
+
+  // Client-side 00:00 Asia/Jakarta Date-Change Monitor
+  useEffect(() => {
+    let lastDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+    const interval = setInterval(() => {
+      const currentDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' });
+      if (currentDateStr !== lastDateStr) {
+        lastDateStr = currentDateStr;
+        fetchDashboardData();
+      }
+    }, 10000);
+    return () => clearInterval(interval);
   }, [fetchDashboardData]);
 
   // Auto-dismiss toast after 6 seconds
@@ -162,90 +184,52 @@ export default function DashboardOverview() {
   useEffect(() => {
     if (!socket.isConnected) return;
 
+    // Midnight reset listener
+    socket.on('midnight_reset', () => {
+      console.log('[Socket] Midnight reset triggered! Refreshing today dashboard...');
+      fetchDashboardData();
+    });
+
     // Listen to new transactions completed
     socket.on('new_transaction', (newTx: RecentTransaction) => {
       console.log('[Socket] New transaction received:', newTx);
-      
-      // Update KPI totals if transaction status is settled/PAID immediately
-      // (or CASH transactions which default to PAID)
-      if (newTx.status === 'PAID') {
-        setSummary((prev) => ({
-          ...prev,
-          totalRevenue: prev.totalRevenue + Number(newTx.total),
-          totalTxCount: prev.totalTxCount + 1,
-          paymentSplit: {
-            ...prev.paymentSplit,
-            [newTx.paymentMethod]: (prev.paymentSplit[newTx.paymentMethod as 'CASH'|'QRIS'] || 0) + 1,
-          },
-        }));
-      }
-
-      // Add to front of recent transactions list
-      setRecentTransactions((prev) => {
-        const filtered = prev.filter((t) => t.id !== newTx.id);
-        return [newTx, ...filtered].slice(0, 5);
-      });
+      fetchDashboardData();
     });
 
-    // Listen to payment status callbacks updating pending transactions to settled (QRIS webhook events)
+    // Listen to payment status callbacks
     socket.on('payment_status', (update: { transactionId: string; transactionNumber: string; status: string }) => {
       console.log('[Socket] Payment status update:', update);
-      
-      setRecentTransactions((prev) =>
-        prev.map((tx) => {
-          if (tx.id === update.transactionId) {
-            // If transitioned to PAID, add to sum summary
-            if (update.status === 'PAID' && tx.status !== 'PAID') {
-              setSummary((prevSum) => ({
-                ...prevSum,
-                totalRevenue: prevSum.totalRevenue + Number(tx.total),
-                totalTxCount: prevSum.totalTxCount + 1,
-                paymentSplit: {
-                  ...prevSum.paymentSplit,
-                  [tx.paymentMethod]: (prevSum.paymentSplit[tx.paymentMethod as 'CASH'|'QRIS'] || 0) + 1,
-                },
-              }));
-            }
-            return { ...tx, status: update.status };
-          }
-          return tx;
-        })
-      );
+      fetchDashboardData();
     });
 
     // Listen to stock adjustment syncs
     socket.on('stock_update', (update: { productId: string; newStock: number }) => {
       console.log('[Socket] Stock update received:', update);
-      // Reload alerts to adjust warnings in real-time
       fetchDashboardData();
     });
 
     // ── Subscription realtime events ──
     socket.on('subscription_upgraded', (data: { planName: string; endDate: string; message: string }) => {
-      console.log('[Socket] Subscription upgraded:', data);
       setToast({ message: data.message || `🎉 Paket ${data.planName} Anda sudah aktif!`, type: 'success' });
-      // Refresh subscription state from server
       fetchSubscription();
     });
 
     socket.on('subscription_grace_period', (data: { planName: string; gracePeriodUntil: string; message: string }) => {
-      console.log('[Socket] Subscription grace period:', data);
       setToast({ message: data.message || '⚠️ Langganan Premium Anda telah berakhir. Masa Tenggang aktif.', type: 'warning' });
       updateFromGracePeriodSocket({ isGracePeriod: true, gracePeriodUntil: data.gracePeriodUntil, message: data.message });
     });
 
     socket.on('subscription_expired', (data: { planName: string; message: string }) => {
-      console.log('[Socket] Subscription expired:', data);
       setToast({ message: data.message || '❌ Masa Tenggang telah berakhir. Akun Anda sekarang menggunakan paket FREE.', type: 'error' });
       fetchSubscription();
     });
 
     socket.on('subscription_warning', (data: { message: string; daysLeft: number }) => {
-      console.log('[Socket] Subscription warning:', data);
       setToast({ message: data.message, type: 'warning' });
     });
 
     return () => {
+      socket.off('midnight_reset');
       socket.off('new_transaction');
       socket.off('payment_status');
       socket.off('stock_update');
@@ -254,7 +238,7 @@ export default function DashboardOverview() {
       socket.off('subscription_expired');
       socket.off('subscription_warning');
     };
-  }, [socket.isConnected, currentStoreId, fetchSubscription, updateFromGracePeriodSocket]);
+  }, [socket.isConnected, currentStoreId, fetchSubscription, updateFromGracePeriodSocket, fetchDashboardData]);
 
   const formatCurrency = (val: number) => {
     return new Intl.NumberFormat('id-ID', {
@@ -449,16 +433,16 @@ export default function DashboardOverview() {
         </>
       )}
 
-      {/* KPI Cards Grid */}
-      <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* KPI Cards Grid — Dashboard Hari Ini */}
+      <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="p-3 bg-blue-600/10 text-blue-600 dark:text-blue-400 rounded-xl">
-              <DollarSign className="h-6 w-6" />
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2.5 bg-blue-600/10 text-blue-600 dark:text-blue-400 rounded-xl shrink-0">
+              <DollarSign className="h-5 w-5" />
             </div>
-            <div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-bold block">Total Omzet</span>
-              <span className="text-lg md:text-xl font-black text-slate-900 dark:text-white mt-1 block">
+            <div className="min-w-0">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold block truncate">Omzet Hari Ini</span>
+              <span className="text-base font-black text-slate-900 dark:text-white mt-0.5 block truncate">
                 {formatCurrency(summary.totalRevenue)}
               </span>
             </div>
@@ -466,13 +450,13 @@ export default function DashboardOverview() {
         </Card>
 
         <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="p-3 bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 rounded-xl">
-              <ShoppingBag className="h-6 w-6" />
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0">
+              <ShoppingBag className="h-5 w-5" />
             </div>
-            <div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-bold block">Volume Penjualan</span>
-              <span className="text-lg md:text-xl font-black text-slate-900 dark:text-white mt-1 block">
+            <div className="min-w-0">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold block truncate">Total Transaksi</span>
+              <span className="text-base font-black text-slate-900 dark:text-white mt-0.5 block truncate">
                 {summary.totalTxCount} Transaksi
               </span>
             </div>
@@ -480,28 +464,56 @@ export default function DashboardOverview() {
         </Card>
 
         <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="p-3 bg-rose-600/10 text-rose-600 dark:text-rose-400 rounded-xl">
-              <AlertTriangle className="h-6 w-6" />
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2.5 bg-cyan-600/10 text-cyan-600 dark:text-cyan-400 rounded-xl shrink-0">
+              <Package className="h-5 w-5" />
             </div>
-            <div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-bold block">Peringatan Stok</span>
-              <span className="text-lg md:text-xl font-black text-slate-900 dark:text-white mt-1 block">
-                {stockAlerts.length} Item Menipis
+            <div className="min-w-0">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold block truncate">Produk Terjual</span>
+              <span className="text-base font-black text-slate-900 dark:text-white mt-0.5 block truncate">
+                {summary.totalProductsSold} Item
               </span>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="flex items-center gap-4">
-            <div className="p-3 bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 rounded-xl">
-              <Smartphone className="h-6 w-6" />
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2.5 bg-purple-600/10 text-purple-600 dark:text-purple-400 rounded-xl shrink-0">
+              <Receipt className="h-5 w-5" />
             </div>
-            <div>
-              <span className="text-xs text-slate-500 dark:text-slate-400 font-bold block">Metode Pembayaran</span>
-              <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mt-1 block">
-                Tunai: {summary.paymentSplit.CASH} | QRIS: {summary.paymentSplit.QRIS}
+            <div className="min-w-0">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold block truncate">Pajak Hari Ini</span>
+              <span className="text-base font-black text-slate-900 dark:text-white mt-0.5 block truncate">
+                {formatCurrency(summary.totalTax)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2.5 bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0">
+              <TrendingUp className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold block truncate">Laba Hari Ini</span>
+              <span className="text-base font-black text-slate-900 dark:text-white mt-0.5 block truncate">
+                {formatCurrency(summary.totalProfit)}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2.5 bg-rose-600/10 text-rose-600 dark:text-rose-400 rounded-xl shrink-0">
+              <AlertTriangle className="h-5 w-5" />
+            </div>
+            <div className="min-w-0">
+              <span className="text-[11px] text-slate-500 dark:text-slate-400 font-bold block truncate">Peringatan Stok</span>
+              <span className="text-base font-black text-slate-900 dark:text-white mt-0.5 block truncate">
+                {stockAlerts.length} Item Menipis
               </span>
             </div>
           </CardContent>

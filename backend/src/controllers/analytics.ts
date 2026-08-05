@@ -1,99 +1,133 @@
 import { Response, NextFunction } from 'express';
 import prisma from '../config/db';
 import { AuthRequest } from '../middlewares/auth';
+import { getDateRangeForPeriod, getWibDateString } from '../utils/date';
 
 export const getDashboardStats = async (req: AuthRequest, res: Response, next: NextFunction) => {
   try {
     const storeId = req.query.storeId as string;
-    const period = (req.query.period as string) || 'month'; // 'day' | 'week' | 'month' | 'year'
+    const period = (req.query.period as string) || 'today';
+    const customStartDate = req.query.startDate as string | undefined;
+    const customEndDate = req.query.endDate as string | undefined;
 
     if (!storeId) {
       return res.status(400).json({ message: 'Store ID query parameter is required' });
     }
 
-    // Determine start date based on period
-    const now = new Date();
-    let startDate = new Date();
-    
-    if (period === 'day') {
-      startDate.setHours(0, 0, 0, 0);
-    } else if (period === 'week') {
-      startDate.setDate(now.getDate() - 7);
-      startDate.setHours(0, 0, 0, 0);
-    } else if (period === 'month') {
-      startDate.setDate(now.getDate() - 30);
-      startDate.setHours(0, 0, 0, 0);
-    } else if (period === 'year') {
-      startDate = new Date(now.getFullYear(), 0, 1);
-      startDate.setHours(0, 0, 0, 0);
-    } else {
-      startDate.setDate(now.getDate() - 30);
-      startDate.setHours(0, 0, 0, 0);
+    // 1. Get precise Date range in Asia/Jakarta timezone
+    const { startDate, endDate, period: resolvedPeriod } = getDateRangeForPeriod(
+      period,
+      customStartDate,
+      customEndDate
+    );
+
+    const whereClause: any = {
+      storeId,
+      status: 'PAID',
+    };
+
+    if (startDate || endDate) {
+      whereClause.createdAt = {};
+      if (startDate) whereClause.createdAt.gte = startDate;
+      if (endDate) whereClause.createdAt.lte = endDate;
     }
 
-    // 1. Fetch PAID transactions within the active period
+    // 2. Fetch PAID transactions within the resolved time bounds
     const transactions = await prisma.transaction.findMany({
-      where: { 
-        storeId, 
-        status: 'PAID',
-        createdAt: {
-          gte: startDate,
+      where: whereClause,
+      include: {
+        items: {
+          include: {
+            product: {
+              select: { costPrice: true },
+            },
+          },
         },
-      },
-      include: { 
-        items: true,
         cashier: {
-          select: { id: true, name: true, role: true }
-        }
+          select: { id: true, name: true, role: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
 
-    // 2. Calculations
+    // 3. Aggregations & Calculations
     let totalRevenue = 0;
     let totalTxCount = transactions.length;
-    let paymentMethodSplit = { CASH: 0, QRIS: 0 };
-    
-    // Group sales by dynamic brackets
+    let totalProductsSold = 0;
+    let totalTax = 0;
+    let totalProfit = 0;
+    const paymentMethodSplit = { CASH: 0, QRIS: 0 };
+    const orderTypeSplit = { DINE_IN: 0, TAKE_AWAY: 0 };
+
     const salesOverTime: Record<string, number> = {};
 
     transactions.forEach((tx) => {
-      totalRevenue += Number(tx.total);
-      
-      // Payment split
+      const txTotal = Number(tx.total);
+      const txTax = Number(tx.tax || 0);
+
+      totalRevenue += txTotal;
+      totalTax += txTax;
+
+      // Payment method split
       if (tx.paymentMethod === 'CASH') {
         paymentMethodSplit.CASH += 1;
       } else {
         paymentMethodSplit.QRIS += 1;
       }
 
-      // Group key based on period
-      let groupKey = '';
-      if (period === 'day') {
-        groupKey = tx.createdAt.toISOString().slice(0, 13) + ':00'; // YYYY-MM-DDTHH:00
-      } else if (period === 'year') {
-        groupKey = tx.createdAt.toISOString().slice(0, 7); // YYYY-MM
+      // Order type split
+      if (tx.orderType === 'TAKE_AWAY') {
+        orderTypeSplit.TAKE_AWAY += 1;
       } else {
-        groupKey = tx.createdAt.toISOString().slice(0, 10); // YYYY-MM-DD
+        orderTypeSplit.DINE_IN += 1;
       }
-      
-      salesOverTime[groupKey] = (salesOverTime[groupKey] || 0) + Number(tx.total);
+
+      // Items calculation (Products sold & Profit)
+      tx.items.forEach((item) => {
+        const qty = item.quantity;
+        totalProductsSold += qty;
+
+        const sellingPrice = Number(item.price);
+        const costPrice = item.product ? Number(item.product.costPrice) : 0;
+        const itemProfit = (sellingPrice - costPrice) * qty;
+        totalProfit += itemProfit;
+      });
+
+      // Grouping key formatted according to Asia/Jakarta (WIB) local date
+      const wibDateStr = getWibDateString(tx.createdAt); // YYYY-MM-DD
+      let groupKey = wibDateStr;
+
+      if (resolvedPeriod === 'today' || resolvedPeriod === 'yesterday') {
+        // Group by hour in WIB: YYYY-MM-DD HH:00
+        const options: Intl.DateTimeFormatOptions = {
+          timeZone: 'Asia/Jakarta',
+          hour: '2-digit',
+          hour12: false,
+        };
+        const hourStr = new Intl.DateTimeFormat('en-US', options).format(tx.createdAt);
+        groupKey = `${wibDateStr} ${hourStr}:00`;
+      } else if (resolvedPeriod === 'year' || resolvedPeriod === 'all') {
+        // Group by month: YYYY-MM
+        groupKey = wibDateStr.slice(0, 7);
+      }
+
+      salesOverTime[groupKey] = (salesOverTime[groupKey] || 0) + txTotal;
     });
 
     // Format salesOverTime to array for Recharts
     const salesChartData = Object.keys(salesOverTime)
       .map((key) => {
         let label = key;
-        if (period === 'day') {
+        if (resolvedPeriod === 'today' || resolvedPeriod === 'yesterday') {
           // format: HH:00
-          label = key.slice(11, 16);
-        } else if (period === 'year') {
+          label = key.split(' ')[1] || key;
+        } else if (resolvedPeriod === 'year' || resolvedPeriod === 'all') {
           // format: MMM YYYY
-          const date = new Date(key + '-02');
+          const date = new Date(`${key}-02`);
           label = date.toLocaleDateString('id-ID', { month: 'short', year: 'numeric' });
         } else {
           // format: D MMM
-          const date = new Date(key);
+          const date = new Date(`${key}T00:00:00+07:00`);
           label = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
         }
         return {
@@ -104,7 +138,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
       })
       .sort((a, b) => a.rawKey.localeCompare(b.rawKey));
 
-    // 3. Aggregate Cashier Reports
+    // 4. Aggregate Cashier Performance Reports
     const cashiers = await prisma.user.findMany({
       where: { storeId },
       select: { id: true, name: true, role: true },
@@ -118,6 +152,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
         role: c.role,
         txCount: 0,
         revenue: 0,
+        profit: 0,
         paymentSplit: { CASH: 0, QRIS: 0 },
       });
     });
@@ -131,13 +166,21 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
           role: tx.cashier?.role || 'CASHIER',
           txCount: 0,
           revenue: 0,
+          profit: 0,
           paymentSplit: { CASH: 0, QRIS: 0 },
         };
         cashierReportsMap.set(tx.cashierId, report);
       }
-      
+
       report.txCount += 1;
       report.revenue += Number(tx.total);
+
+      tx.items.forEach((item) => {
+        const sellingPrice = Number(item.price);
+        const costPrice = item.product ? Number(item.product.costPrice) : 0;
+        report.profit += (sellingPrice - costPrice) * item.quantity;
+      });
+
       if (tx.paymentMethod === 'CASH') {
         report.paymentSplit.CASH += Number(tx.total);
       } else {
@@ -146,20 +189,16 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
     });
 
     const cashierReports = Array.from(cashierReportsMap.values())
-      .sort((a, b) => b.revenue - a.revenue); // Sort by highest revenue first
+      .sort((a, b) => b.revenue - a.revenue);
 
-    // 4. Best-Selling Products Grouping (restricted by timeframe)
+    // 5. Best-Selling Products Grouping for the active timeframe
+    const itemWhereClause: any = {
+      transaction: whereClause,
+    };
+
     const bestSellers = await prisma.transactionItem.groupBy({
       by: ['productId', 'productName'],
-      where: {
-        transaction: {
-          storeId,
-          status: 'PAID',
-          createdAt: {
-            gte: startDate,
-          },
-        },
-      },
+      where: itemWhereClause,
       _sum: {
         quantity: true,
         total: true,
@@ -179,7 +218,7 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
       totalSalesVal: item._sum.total || 0,
     }));
 
-    // 5. Stock alert (realtime snapshot, not timeframe-bound)
+    // 6. Stock alerts snapshot
     const stockAlerts = await prisma.product.findMany({
       where: {
         storeId,
@@ -197,10 +236,15 @@ export const getDashboardStats = async (req: AuthRequest, res: Response, next: N
     });
 
     return res.json({
+      period: resolvedPeriod,
       summary: {
         totalRevenue,
         totalTxCount,
+        totalProductsSold,
+        totalTax,
+        totalProfit,
         paymentSplit: paymentMethodSplit,
+        orderTypeSplit,
       },
       salesChartData,
       bestSellers: formattedBestSellers,

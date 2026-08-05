@@ -7,8 +7,9 @@ import dotenv from 'dotenv';
 import cron from 'node-cron';
 import apiRouter from './routes';
 import { errorHandler } from './middlewares/error';
-import { initSocket } from './services/socket';
+import { initSocket, broadcastMidnightReset } from './services/socket';
 import { expireSubscriptions, processGracePeriodExpirations, runSubscriptionReminderChecks } from './services/subscription';
+import { getWibDateString } from './utils/date';
 
 // Load environmental parameters
 dotenv.config();
@@ -55,8 +56,24 @@ app.get('/health', (req, res) => {
 initSocket(server);
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Cron Jobs — Subscription Lifecycle Management
+// Cron Jobs — POS Midnight Reset & Subscription Lifecycle Management
 // ─────────────────────────────────────────────────────────────────────────────
+
+// Midnight Cron Job: Every day at 00:00:00 Asia/Jakarta (WIB)
+// Resets Today's Dashboard view counters in real-time without deleting database records.
+cron.schedule('0 0 * * *', async () => {
+  const todayWib = getWibDateString();
+  console.log(`[Cron/00:00 Asia/Jakarta] Running midnight dashboard cache reset & daily report recalculation for ${todayWib}...`);
+  try {
+    // Broadcast real-time midnight reset event to all connected POS & Dashboard clients
+    broadcastMidnightReset(todayWib);
+    console.log(`[Cron/00:00 Asia/Jakarta] Daily dashboard reset complete. All transaction records preserved in database.`);
+  } catch (err) {
+    console.error('[Cron/00:00 Asia/Jakarta] Midnight reset job failed:', err);
+  }
+}, {
+  timezone: 'Asia/Jakarta'
+});
 
 // Every minute: expire check (ACTIVE → GRACE_PERIOD) + grace period check (GRACE_PERIOD → FREE)
 cron.schedule('* * * * *', async () => {
@@ -100,7 +117,7 @@ cron.schedule('0 1 * * *', async () => {
   }
 });
 
-console.log('[Cron] Subscription lifecycle scheduler initialized');
+console.log('[Cron] POS Midnight Reset & Subscription Lifecycle schedulers initialized');
 
 // Global Error Handler
 app.use(errorHandler);

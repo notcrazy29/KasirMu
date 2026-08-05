@@ -251,3 +251,10 @@ export const emitToStore = (storeId: string, event: string, data: any) => {
     console.warn('[Socket] Attempted to emit, but socket.io is not initialized.');
   }
 };
+
+export const broadcastMidnightReset = (dateStr?: string) => {
+  if (io) {
+    io.emit('midnight_reset', { date: dateStr || new Date().toISOString().slice(0, 10), timestamp: Date.now() });
+    console.log(`[Socket] Broadcasted 'midnight_reset' to all connected clients.`);
+  }
+};

@@ -503,7 +503,7 @@ export const expireSubscriptions = async (): Promise<number> => {
         'Langganan Premium KasirMu — Masa Tenggang Aktif',
         `
           <h2>Halo ${sub.user.name},</h2>
-          <p>Paket <strong>${sub.plan.name}</strong> Anda telah berakhir pada <strong>${new Date(sub.endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
+          <p>Paket <strong>${sub.plan.name}</strong> Anda telah berakhir pada <strong>${sub.endDate ? new Date(sub.endDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'}</strong>.</p>
           <p>Anda masih berada dalam <strong>Masa Tenggang selama ${GRACE_PERIOD_DAYS} hari</strong> hingga <strong>${gracePeriodUntil.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</strong>.</p>
           <p>Selama masa tenggang, Anda masih dapat melihat data toko, produk, transaksi, dan laporan. Namun fitur Premium telah dinonaktifkan sementara.</p>
           <p><a href="${process.env.CLIENT_URL || 'http://localhost:3000'}/dashboard/subscription" style="background:#f59e0b;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:bold;">Perpanjang Sekarang</a></p>
@@ -664,6 +664,7 @@ export const runSubscriptionReminderChecks = async () => {
     });
 
     for (const sub of expiringSubs) {
+      if (!sub.endDate) continue;
       const owner = sub.user;
       const actualDaysLeft = Math.ceil((new Date(sub.endDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 

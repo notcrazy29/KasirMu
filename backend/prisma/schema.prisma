@@ -115,6 +115,8 @@ model Store {
   taxSetting   TaxSetting?
   shiftSchedules ShiftSchedule[]
   paymentGateway PaymentGateway?
+
+  @@index([ownerId])
 }
 
 model Branch {
@@ -213,6 +215,16 @@ model Transaction {
   payment Payment?
   shiftId String?
   shift   Shift?            @relation(fields: [shiftId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([storeId])
+  @@index([invoiceNumber])
+  @@index([paymentMethod])
+  @@index([status])
+  @@index([cashierId])
+  @@index([orderType])
+  @@index([storeId, createdAt])
+  @@index([storeId, status, createdAt])
 }
 
 model TransactionItem {
@@ -227,6 +239,9 @@ model TransactionItem {
   total         Decimal
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
+
+  @@index([transactionId])
+  @@index([productId])
 }
 
 model Payment {
