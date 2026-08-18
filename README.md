@@ -13,6 +13,7 @@
 
 ## 📋 Daftar Isi
 
+- [📸 Tampilan Desain & Antarmuka UI](#-tampilan-desain--antarmuka-ui-website-previews)
 - [✨ Fitur Utama Berdasarkan Peran (Role-Based Features)](#-fitur-utama-berdasarkan-peran-role-based-features)
   - [1. 👑 Peran Super Admin (Platform Governance)](#1--peran-super-admin-platform-governance)
   - [2. 🏪 Peran Owner Toko (Merchant SaaS Management)](#2--peran-owner-toko-merchant-saas-management)
@@ -26,6 +27,34 @@
 - [💳 Integrasi Payment Gateway Midtrans & QRIS Simulator](#-integrasi-payment-gateway-midtrans--qris-simulator)
 - [🖨️ Fitur Cetak Struk Thermal & PDF](#️-fitur-cetak-struk-thermal--pdf)
 - [📄 Lisensi & Hak Cipta](#-lisensi--hak-cipta)
+
+---
+
+## 📸 Tampilan Desain & Antarmuka UI (Website Previews)
+
+Berikut adalah pratinjau antarmuka visual utama dari aplikasi web **KasirMu**:
+
+### 1. 🏪 Dashboard Executive Owner Analytics
+Visualisasi omzet harian/bulanan, total transaksi, average order value (AOV), peringatan stok kritis, dan produk terlaris berbasis chart interaktif.
+![Dashboard Executive Owner](docs/screenshots/owner_dashboard.jpg)
+
+---
+
+### 2. 💻 Terminal POS Kasir & Register
+Antarmuka kasir kilat dengan pencarian katalog produk, scanner barcode, pengelompokan kategori, manajemen keranjang belanja, serta tombol opsi pembayaran.
+![Terminal POS Kasir](docs/screenshots/pos_terminal.jpg)
+
+---
+
+### 3. 💳 Modal QRIS Dynamic & Thermal Receipt Preview
+Layar transaksi QRIS interaktif dengan pembaruan status pembayaran lunas otomatis via Socket.IO serta pratinjau cetak struk thermal 58mm/80mm.
+![QRIS Payment & Receipt](docs/screenshots/qris_receipt.jpg)
+
+---
+
+### 4. 👑 Portal Governance Super Admin
+Panel tata kelola platform SaaS untuk verifikasi approval toko merchant baru, manajemen alokasi langganan, dan pemantauan realtime audit log.
+![Super Admin Governance Portal](docs/screenshots/superadmin_portal.jpg)
 
 ---
 
@@ -149,6 +178,9 @@ KasirMu/
 │   │   └── types/                  # Definition Interface TypeScript
 │   ├── package.json
 │   └── tailwind.config.js
+│
+├── docs/                           # Dokumentasi & Aset Gambar
+│   └── screenshots/                # Tangkapan Layar & Pratinjau Desain Web UI
 │
 └── README.md                       # Dokumentasi Utama Proyek KasirMu
 ```
